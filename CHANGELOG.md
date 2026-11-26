@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.0 — Live emulator diagnostics
+- Added an in-session diagnostics panel for configured RAM, detected display mode, IDE disk read/write traffic, virtual NIC RX/TX traffic and 9p attach/read/write events.
+- Wired counters to v86's documented event interface; counters reset when a new VM instance is created.
+- Clarified that network counters do not establish public internet connectivity and RAM is configured allocation, not measured usage.
+
 ## 0.8.1 — Bidirectional 9p file exchange
 - Added an optional guest-to-browser file download control using v86's read_file API.
 - Added strict relative-path validation to reject empty, dot and parent-directory path segments.

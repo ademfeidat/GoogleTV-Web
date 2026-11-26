@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.3 — Configurable low-memory profiles
+- Added selectable 256 MB, 384 MB and 512 MB guest RAM allocations for constrained host devices.
+- Kept 512 MB as the default and marked lower-memory profiles experimental because Android guest requirements vary.
+- Disabled RAM changes while a VM is active and included the selected allocation in session snapshot compatibility.
+- Added CI coverage for the RAM selector and boot configuration.
+
 ## 0.9.2 — Boot preflight and artifact verification
 - Added static contract tests for the v86 boot configuration, startup readiness timeout and partial-start cleanup.
 - Added a production-build check that fails if the HTML entry point or v86 WebAssembly runtime is missing or empty.

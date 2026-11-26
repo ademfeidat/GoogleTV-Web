@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.0 — Modified disk image export
+- Added an export action for the writable v86 hard-disk ArrayBuffer after VM shutdown.
+- Kept disk bytes in memory between stop and restart within the current page session.
+- Documented the manual export workflow and data-loss risk if the tab closes before export.
+
 ## 0.4.0 — Optional hard disk attachment
 - Added optional raw hard-disk image selection and attachment as v86 `hda`.
 - Included disk file metadata in snapshot compatibility checks.

@@ -11,6 +11,8 @@ root.innerHTML = `
 <div class="field"><label for="disk">Virtual hard disk (optional · raw .img/.bin)</label><input class="file" id="disk" type="file" accept=".img,.bin,.raw"><p class="hint" id="disk-name">No hard disk selected — live ISO mode only</p><button id="export-disk" disabled>Export modified disk image</button><div class="actions disk-actions"><button id="save-disk" disabled>Save disk to browser</button><button id="restore-disk" disabled>Restore local disk</button></div><p class="hint" id="disk-storage-info">Local disk backup not checked yet.</p></div>
 <div class="field"><label for="bios">SeaBIOS firmware (.bin)</label><input class="file" id="bios" type="file" accept=".bin"></div>
 <div class="field"><label for="vga">VGA BIOS (.bin)</label><input class="file" id="vga" type="file" accept=".bin"></div>
+<div class="storage"><h3>Optional network</h3><p class="hint">Configure a v86-compatible network relay. Leave blank to disable networking. inbrowser connects browser VMs only; it does not provide internet access.</p><div class="field"><label for="network-type">Virtual network card</label><select class="file" id="network-type"><option value="virtio">VirtIO (recommended for modern guests)</option><option value="ne2k">NE2000 (fallback)</option></select></div><div class="field"><label for="network-relay">Network backend URL</label><input class="file" id="network-relay" type="text" placeholder="inbrowser or wss://your-relay.example/"></div><p class="hint">Public relays are not bundled. A secure WSS/WISP relay must be supplied by the operator.</p></div>
+<div class="storage"><h3>APK transfer (experimental)</h3><p class="hint">Send APK files to the emulator's 9p shared folder. The guest OS must support the VirtIO 9p device and mount host9p before the files are visible. This transfers files; it does not install them automatically.</p><input class="file" id="apk-files" type="file" accept=".apk,application/vnd.android.package-archive" multiple><div class="actions"><button id="send-apks" disabled>Send APKs to VM</button></div><p class="hint" id="apk-status">Start the VM before sending files.</p></div>
 <div class="actions"><button class="primary" id="start" disabled>Start VM</button><button id="stop" disabled>Stop VM</button></div>
 <div class="storage"><h3>Session storage</h3><p class="hint">Save or restore the complete emulator state in this browser. Use the same ISO, optional disk image and firmware files when restoring.</p><div class="actions"><button id="save" disabled>Save session</button><button id="restore" disabled>Restore session</button></div><button class="danger" id="delete-save">Delete saved session</button><p class="hint" id="storage-info">Checking browser storage…</p></div>
 <p class="notice"><b>Compatibility warning</b><br>v86 is a 32-bit x86 emulator. Upstream lists Android-x86 4.4-r2 as tested; Android TV 7.1 and newer are unverified.</p></aside>
@@ -31,6 +33,7 @@ let diskBuffer = null;
 let diskBufferSource = null;
 let bootFiles = null;
 let starting = false;
+let emulatorReady = false;
 
 function setStatus(message, kind = 'info') {
   $('status').textContent = message;
@@ -116,6 +119,7 @@ function setButtons() {
   $('start').disabled = !iso || starting || !!vm;
   $('stop').disabled = !vm;
   $('save').disabled = !vm || starting;
+  $('send-apks').disabled = !vm || !emulatorReady || starting || !$('apk-files').files.length;
   refreshStorageControls();
   refreshDiskControls();
 }
@@ -208,6 +212,11 @@ async function createEmulator({ autostart = true } = {}) {
   }
   if (!disk) diskBuffer = null;
   bootFiles = urls;
+  const relay = $('network-relay').value.trim();
+  const netType = $('network-type').value;
+  if (relay && relay !== 'inbrowser' && !/^(wss?|wisps?):\/\//i.test(relay)) {
+    throw new Error('Network backend must be inbrowser or a ws://, wss://, wisp:// or wisps:// URL.');
+  }
   const instance = new V86({
     wasm_path: '/v86/v86.wasm',
     memory_size: MEMORY_SIZE,
@@ -217,9 +226,15 @@ async function createEmulator({ autostart = true } = {}) {
     vga_bios: { url: urls[2] },
     cdrom: { url: urls[0] },
     ...(diskBuffer ? { hda: { buffer: diskBuffer } } : {}),
+    filesystem: {},
+    ...(relay ? { net_device: { type: netType, relay_url: relay } } : {}),
     autostart,
   });
-  instance.add_listener('emulator-ready', () => setStatus('Emulator ready.', 'ok'));
+  instance.add_listener('emulator-ready', () => {
+    emulatorReady = true;
+    setStatus('Emulator ready. The 9p file-transfer interface is available if the guest supports it.', 'ok');
+    setButtons();
+  });
   instance.add_listener('emulator-started', () => {
     setStatus('Virtual machine running.', 'ok');
     setButtons();
@@ -237,6 +252,7 @@ function waitForReady(instance) {
 }
 async function startVM() {
   if (vm || starting) return;
+  emulatorReady = false;
   starting = true;
   setButtons();
   setStatus('Starting x86 emulator…', 'busy');
@@ -276,6 +292,7 @@ async function stopVM() {
   try {
     await vm.destroy();
     vm = null;
+    emulatorReady = false;
     bootFiles?.forEach(URL.revokeObjectURL);
     bootFiles = null;
     $('screen').innerHTML = '<div style="white-space:pre;font:14px monospace;line-height:14px"></div><canvas style="display:none"></canvas>';
@@ -283,6 +300,40 @@ async function stopVM() {
     $('export-disk').disabled = !diskBuffer;
   } catch (error) {
     setStatus('Stop failed: ' + error.message, 'error');
+  } finally {
+    starting = false;
+    setButtons();
+  }
+}
+function safeApkName(name) {
+  const clean = name.normalize('NFKC').replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^\.+/, '');
+  return clean.toLowerCase().endsWith('.apk') ? clean : clean + '.apk';
+}
+async function sendApkFiles() {
+  if (!vm || !emulatorReady || starting) return;
+  const files = Array.from($('apk-files').files || []);
+  if (!files.length) return;
+  const maxFileSize = 512 * 1024 * 1024;
+  const tooLarge = files.find(file => file.size > maxFileSize);
+  if (tooLarge) {
+    $('apk-status').textContent = tooLarge.name + ' exceeds the 512 MB per-file transfer limit.';
+    return;
+  }
+  starting = true;
+  setButtons();
+  const sent = [];
+  try {
+    for (const file of files) {
+      const path = '/' + safeApkName(file.name);
+      $('apk-status').textContent = 'Transferring ' + file.name + '…';
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      await vm.create_file(path, bytes);
+      sent.push(path);
+    }
+    $('apk-status').textContent = 'Transferred ' + sent.length + ' APK file(s) to the guest 9p filesystem root: ' + sent.join(', ');
+    setStatus('APK transfer completed. Mount host9p inside the guest to access the files; installation is a separate guest-side action.', 'ok');
+  } catch (error) {
+    $('apk-status').textContent = 'Transfer failed: ' + error.message + '. Check that this v86 build initialized its 9p filesystem and that the guest is ready.';
   } finally {
     starting = false;
     setButtons();
@@ -331,11 +382,13 @@ async function restoreSession() {
     await waitForReady(vm);
     setStatus('Restoring saved virtual machine state…', 'busy');
     await vm.restore_state(record.state);
+    emulatorReady = true;
     await vm.run();
     setStatus('Saved session restored.', 'ok');
   } catch (error) {
     if (vm) await vm.destroy().catch(() => {});
     vm = null;
+    emulatorReady = false;
     bootFiles?.forEach(URL.revokeObjectURL);
     bootFiles = null;
     setStatus('Restore failed: ' + error.message, 'error');
@@ -360,6 +413,8 @@ $('save-disk').addEventListener('click', saveDiskLocally);
 $('restore-disk').addEventListener('click', restoreDiskLocally);
 $('stop').addEventListener('click', stopVM);
 $('save').addEventListener('click', saveSession);
+$('send-apks').addEventListener('click', sendApkFiles);
+$('apk-files').addEventListener('change', setButtons);
 $('restore').addEventListener('click', restoreSession);
 $('delete-save').addEventListener('click', deleteSavedSession);
 $('restart').addEventListener('click', () => vm?.restart());

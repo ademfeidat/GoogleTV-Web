@@ -31,3 +31,7 @@ The application also initializes an empty v86 9p filesystem and exposes upload/d
 
 ## Runtime diagnostics (0.9.0)
 The browser UI includes live event counters for detected display dimensions, IDE disk reads/writes, virtual NIC receive/transmit traffic and 9p filesystem attach/read/write events. The RAM figure is the configured guest memory allocation (512 MiB), not measured guest usage. Counters are reset for each new VM instance and are not persisted in snapshots. Network traffic counters only indicate activity observed at the emulated NIC; they do not confirm DNS resolution, relay health or public internet access. A missing display mode or 9p attachment means the corresponding guest event has not been observed yet; it is not a standalone boot-failure diagnosis.
+
+
+## Boot validation protocol
+See [BOOT-TESTING.md](./BOOT-TESTING.md) for automated preflight coverage, the manual guest boot matrix and the evidence required before marking Android boot as successful.

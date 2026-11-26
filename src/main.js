@@ -8,7 +8,7 @@ root.innerHTML = `
 <section class="layout">
 <aside class="panel"><h2>Virtual machine setup</h2>
 <div class="field"><label for="iso">Android-x86 / Android TV ISO</label><input class="file" id="iso" type="file" accept=".iso"><p class="hint" id="iso-name">No ISO selected</p></div>
-<div class="field"><label for="disk">Virtual hard disk (optional · raw .img/.bin)</label><input class="file" id="disk" type="file" accept=".img,.bin,.raw"><p class="hint" id="disk-name">No hard disk selected — live ISO mode only</p><button id="export-disk" disabled>Export modified disk image</button></div>
+<div class="field"><label for="disk">Virtual hard disk (optional · raw .img/.bin)</label><input class="file" id="disk" type="file" accept=".img,.bin,.raw"><p class="hint" id="disk-name">No hard disk selected — live ISO mode only</p><button id="export-disk" disabled>Export modified disk image</button><div class="actions disk-actions"><button id="save-disk" disabled>Save disk to browser</button><button id="restore-disk" disabled>Restore local disk</button></div><p class="hint" id="disk-storage-info">Local disk backup not checked yet.</p></div>
 <div class="field"><label for="bios">SeaBIOS firmware (.bin)</label><input class="file" id="bios" type="file" accept=".bin"></div>
 <div class="field"><label for="vga">VGA BIOS (.bin)</label><input class="file" id="vga" type="file" accept=".bin"></div>
 <div class="actions"><button class="primary" id="start" disabled>Start VM</button><button id="stop" disabled>Stop VM</button></div>
@@ -20,7 +20,7 @@ root.innerHTML = `
 
 const $ = id => document.getElementById(id);
 const DB_NAME = 'googletv-web-storage';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STATE_KEY = 'latest';
 const EMULATOR_VERSION = 'v86-0.5.476';
 const MEMORY_SIZE = 512 * 1024 * 1024;
@@ -59,16 +59,19 @@ function openDatabase() {
       if (!request.result.objectStoreNames.contains('sessions')) {
         request.result.createObjectStore('sessions', { keyPath: 'id' });
       }
+      if (!request.result.objectStoreNames.contains('disks')) {
+        request.result.createObjectStore('disks', { keyPath: 'id' });
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 }
-async function dbRequest(mode, action) {
+async function dbRequest(mode, action, storeName = 'sessions') {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction('sessions', mode);
-    const store = tx.objectStore('sessions');
+    const tx = db.transaction(storeName, mode);
+    const store = tx.objectStore(storeName);
     const request = action(store);
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -104,10 +107,73 @@ async function refreshStorageControls() {
 }
 function setButtons() {
   $('export-disk').disabled = !diskBuffer || !!vm || starting;
+  $('save-disk').disabled = !diskBuffer || !!vm || starting;
+  $('restore-disk').disabled = !disk || !!vm || starting;
   $('start').disabled = !iso || starting || !!vm;
   $('stop').disabled = !vm;
   $('save').disabled = !vm || starting;
   refreshStorageControls();
+  refreshDiskControls();
+}
+
+function diskBackupId() {
+  if (!disk) return null;
+  return 'disk:' + JSON.stringify(fileSignature(disk));
+}
+async function readSavedDisk() {
+  const id = diskBackupId();
+  return id ? dbRequest('readonly', store => store.get(id), 'disks') : null;
+}
+async function refreshDiskControls() {
+  try {
+    const saved = await readSavedDisk();
+    $('restore-disk').disabled = !disk || !saved || !!vm || starting;
+    $('disk-storage-info').textContent = saved
+      ? 'Local backup found · ' + (saved.byteLength / 1048576).toFixed(1) + ' MB · ' + new Date(saved.savedAt).toLocaleString()
+      : disk ? 'No local backup for this exact disk file.' : 'Select a disk image to check for a local backup.';
+  } catch (error) {
+    $('disk-storage-info').textContent = 'Local disk storage unavailable: ' + error.message;
+  }
+}
+async function saveDiskLocally() {
+  if (!diskBuffer || !disk || vm || starting) return;
+  starting = true;
+  setButtons();
+  setStatus('Saving the complete virtual disk to this browser…', 'busy');
+  try {
+    const copy = diskBuffer.slice(0);
+    const record = { id: diskBackupId(), signature: fileSignature(disk), buffer: copy, byteLength: copy.byteLength, savedAt: Date.now() };
+    await dbRequest('readwrite', store => store.put(record), 'disks');
+    setStatus('Disk backup saved locally. It can be restored after selecting the same original disk image.', 'ok');
+  } catch (error) {
+    setStatus('Local disk save failed: ' + (error?.name === 'QuotaExceededError' ? 'Browser storage quota exceeded. Export the disk image instead or free browser storage.' : error.message), 'error');
+  } finally {
+    starting = false;
+    setButtons();
+  }
+}
+async function restoreDiskLocally() {
+  if (!disk || vm || starting) return;
+  starting = true;
+  setButtons();
+  setStatus('Checking local disk backup…', 'busy');
+  try {
+    const record = await readSavedDisk();
+    if (!record || JSON.stringify(record.signature) !== JSON.stringify(fileSignature(disk))) {
+      throw new Error('No matching local backup exists for this exact disk file.');
+    }
+    if (!(record.buffer instanceof ArrayBuffer) || record.buffer.byteLength !== record.byteLength) {
+      throw new Error('The saved disk backup is incomplete or invalid.');
+    }
+    diskBuffer = record.buffer.slice(0);
+    diskBufferSource = disk;
+    setStatus('Local disk backup restored into memory. Start the VM to use this saved disk state.', 'ok');
+  } catch (error) {
+    setStatus('Local disk restore failed: ' + error.message, 'error');
+  } finally {
+    starting = false;
+    setButtons();
+  }
 }
 
 $('disk').addEventListener('change', event => {
@@ -115,6 +181,8 @@ $('disk').addEventListener('change', event => {
   diskBuffer = null;
   diskBufferSource = null;
   $('export-disk').disabled = true;
+  $('save-disk').disabled = true;
+  $('restore-disk').disabled = true;
   $('disk-name').textContent = disk ? disk.name + ' · ' + (disk.size / 1048576).toFixed(1) + ' MB' : 'No hard disk selected — live ISO mode only';
   setButtons();
 });
@@ -171,7 +239,7 @@ async function startVM() {
   try {
     vm = await createEmulator({ autostart: true });
     await waitForReady(vm);
-    setStatus(disk ? 'Emulator ready — ISO and selected hard disk attached. Disk writes are retained only inside a saved VM snapshot.' : 'Emulator ready — guest boot is in progress. No writable hard disk is attached.', 'ok');
+    setStatus(disk ? 'Emulator ready — ISO and selected hard disk attached. Disk writes remain in memory until you save or export the disk.' : 'Emulator ready — guest boot is in progress. No writable hard disk is attached.', 'ok');
   } catch (error) {
     if (vm) await vm.destroy().catch(() => {});
     vm = null;
@@ -284,6 +352,8 @@ async function deleteSavedSession() {
 
 $('start').addEventListener('click', startVM);
 $('export-disk').addEventListener('click', exportDiskImage);
+$('save-disk').addEventListener('click', saveDiskLocally);
+$('restore-disk').addEventListener('click', restoreDiskLocally);
 $('stop').addEventListener('click', stopVM);
 $('save').addEventListener('click', saveSession);
 $('restore').addEventListener('click', restoreSession);
@@ -293,4 +363,5 @@ $('full').addEventListener('click', () => document.fullscreenElement ? document.
 $('bios').addEventListener('change', refreshStorageControls);
 $('vga').addEventListener('change', refreshStorageControls);
 $('disk').addEventListener('change', refreshStorageControls);
+$('disk').addEventListener('change', refreshDiskControls);
 refreshStorageControls();

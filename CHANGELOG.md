@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0 — Local virtual disk backups
+- Added explicit save and restore controls for complete raw disk images using a dedicated IndexedDB object store.
+- Restricted disk backup and restore actions to a stopped VM to avoid copying a disk while the guest may still be writing.
+- Matched local backups to the selected source disk metadata and validated restored ArrayBuffer length.
+- Added quota-aware error messaging and documented that backups are manual, browser-local copies rather than crash-safe autosave.
+
+
 ## 0.5.0 — Modified disk image export
 - Added an export action for the writable v86 hard-disk ArrayBuffer after VM shutdown.
 - Kept disk bytes in memory between stop and restart within the current page session.

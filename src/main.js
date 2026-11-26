@@ -103,6 +103,7 @@ async function refreshStorageControls() {
   }
 }
 function setButtons() {
+  $('export-disk').disabled = !diskBuffer || !!vm || starting;
   $('start').disabled = !iso || starting || !!vm;
   $('stop').disabled = !vm;
   $('save').disabled = !vm || starting;

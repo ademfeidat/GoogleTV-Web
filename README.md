@@ -5,7 +5,7 @@ Experimental x86 virtual machine launcher for running a compatible Android-x86 /
 ## Compatibility reality
 This is not a Google-certified Google TV implementation and does not stream Google's operating system. It embeds the open-source `v86` x86-to-WebAssembly emulator. v86 supports 32-bit x86 guests; upstream lists Android-x86 4.4-r2 as tested. Android TV 7.1 and later are unverified and may fail to boot or run slowly. Google Play certification, DRM/HDCP, Widevine, hardware video acceleration and ARM-only APKs are not provided.
 
-## Current scope (0.8.1)
+## Current scope (0.9.0)
 - Browser ISO and firmware selection.
 - Optional raw hard-disk image attachment as v86 `hda` (select an existing `.img`, `.raw` or `.bin` image).
 - Export the modified in-memory disk image after stopping the VM.
@@ -17,6 +17,7 @@ This is not a Google-certified Google TV implementation and does not stream Goog
 - Restore checks emulator version and selected ISO/firmware file metadata.
 - Browser storage estimate and saved-session deletion controls.
 - Optional v86 network-device configuration using a user-supplied relay URL.
+- Live diagnostics for configured RAM, display dimensions, IDE disk I/O, virtual NIC RX/TX traffic and 9p filesystem events. Counters are event-based, not a performance profiler or proof of internet reachability.
 - Experimental bidirectional file exchange through v86's 9p filesystem API (`create_file` and `read_file`) when the guest supports VirtIO 9p. Duplicate APK filenames in one batch are automatically disambiguated; selected guest files can be downloaded back to the browser.
 
 Not implemented yet: automatic crash-safe disk persistence, background write-back, ADB bridge, automatic APK installation, bundled/public network relay, mobile-device validation and public deployment. APK transfer only writes files into the emulator's 9p filesystem; the Android guest must have a compatible 9p driver and mount host9p to access them. This is not an installer and does not guarantee Android TV kernel support for 9p. Internet access requires a separately operated compatible relay; inbrowser only connects v86 instances within the browser and does not reach the public internet. Disk backups are manual, not automatic: save them only after stopping the VM. If the tab closes before saving or exporting, unsaved in-memory disk changes can be lost. A local backup duplicates the full disk image and can consume substantial browser quota; browser storage is not a substitute for an external backup. A VM snapshot can be very large because it contains machine memory/state. Exporting the disk image is a separate operation and does not export VM RAM or a resumable session.

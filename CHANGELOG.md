@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.1
+- Fixed an emulator-ready event race that could leave startup or restore waiting for a readiness event that had already fired.
+- Reset readiness state whenever a new emulator instance is created.
+- Prevented duplicate APK filenames in one transfer batch from targeting the same 9p path; collisions receive numeric suffixes.
+- Added an explicit runtime check for availability of the v86 9p file API.
+
 ## 0.7.0 — Network configuration and experimental APK transfer
 - Added optional network device configuration using v86 net_device with an explicit relay URL.
 - Added an empty 9p filesystem and APK file transfer through the documented create_file API.

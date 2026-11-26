@@ -22,6 +22,9 @@ This is not a Google-certified Google TV implementation and does not stream Goog
 
 Not implemented yet: automatic crash-safe disk persistence, background write-back, ADB bridge, automatic APK installation, bundled/public network relay, mobile-device validation and public deployment. APK transfer only writes files into the emulator's 9p filesystem; the Android guest must have a compatible 9p driver and mount host9p to access them. This is not an installer and does not guarantee Android TV kernel support for 9p. Internet access requires a separately operated compatible relay; inbrowser only connects v86 instances within the browser and does not reach the public internet. Disk backups are manual, not automatic: save them only after stopping the VM. If the tab closes before saving or exporting, unsaved in-memory disk changes can be lost. A local backup duplicates the full disk image and can consume substantial browser quota; browser storage is not a substitute for an external backup. A VM snapshot can be very large because it contains machine memory/state. Exporting the disk image is a separate operation and does not export VM RAM or a resumable session.
 
+## Tests
+Run `npm test` to execute the Node.js unit tests for file naming, 9p path validation and diagnostics byte formatting. These tests do not boot an Android guest.
+
 ## Development
 Run `npm install`, then `npm run dev`. Use `npm run build` for a production build. The postinstall script copies the v86 WASM artifact to `public/v86/` for Vite deployments.
 

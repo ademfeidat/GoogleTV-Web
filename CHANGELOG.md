@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0 — Optional hard disk attachment
+- Added optional raw hard-disk image selection and attachment as v86 `hda`.
+- Included disk file metadata in snapshot compatibility checks.
+- Clarified that guest disk changes are retained through full VM snapshots only; standalone disk write-back/export is not implemented.
+
 ## 0.3.0 — Session snapshot milestone
 - Added user-triggered full VM save and restore using the documented v86 state API.
 - Stored snapshots in browser IndexedDB with storage estimate and delete control.

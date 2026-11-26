@@ -73,9 +73,13 @@ async function dbRequest(mode, action, storeName = 'sessions') {
     const tx = db.transaction(storeName, mode);
     const store = tx.objectStore(storeName);
     const request = action(store);
-    request.onsuccess = () => resolve(request.result);
+    let result;
+    request.onsuccess = () => { result = request.result; };
     request.onerror = () => reject(request.error);
-    tx.oncomplete = () => db.close();
+    tx.oncomplete = () => {
+      db.close();
+      resolve(result);
+    };
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error || new Error('Storage transaction aborted'));
   });

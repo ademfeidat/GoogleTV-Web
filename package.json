@@ -1,14 +1,15 @@
 {
   "name": "googletv-web",
   "private": true,
-  "version": "0.9.0",
+  "version": "0.9.1",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
     "check": "node --check src/main.js",
-    "postinstall": "node scripts/copy-v86-assets.mjs"
+    "postinstall": "node scripts/copy-v86-assets.mjs",
+    "test": "node --test"
   },
   "dependencies": {
     "v86": "0.5.476"

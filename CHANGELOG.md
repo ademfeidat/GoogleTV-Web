@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.2 — Boot preflight and artifact verification
+- Added static contract tests for the v86 boot configuration, startup readiness timeout and partial-start cleanup.
+- Added a production-build check that fails if the HTML entry point or v86 WebAssembly runtime is missing or empty.
+- Added a staged manual boot protocol that distinguishes emulator initialization from a confirmed Android guest boot.
+
 ## 0.9.1 — Automated safety tests
 - Extracted pure file-transfer helpers for isolated testing.
 - Added Node.js tests for byte formatting, APK filename sanitization, duplicate naming and 9p path traversal rejection.
@@ -19,7 +24,6 @@
 - Added an on-screen directional pad with OK, Back and Home controls for touch devices.
 - Mapped remote buttons to v86 PC keyboard scan codes and gated them on emulator readiness.
 
-
 ## 0.7.1
 - Fixed an emulator-ready event race that could leave startup or restore waiting for a readiness event that had already fired.
 - Reset readiness state whenever a new emulator instance is created.
@@ -32,13 +36,11 @@
 - Added guest compatibility caveats: 9p mounting is guest-kernel dependent and file transfer does not install APKs.
 - Kept networking disabled unless the user supplies a compatible relay; no public relay or internet service is bundled.
 
-
 ## 0.6.0 — Local virtual disk backups
 - Added explicit save and restore controls for complete raw disk images using a dedicated IndexedDB object store.
 - Restricted disk backup and restore actions to a stopped VM to avoid copying a disk while the guest may still be writing.
 - Matched local backups to the selected source disk metadata and validated restored ArrayBuffer length.
 - Added quota-aware error messaging and documented that backups are manual, browser-local copies rather than crash-safe autosave.
-
 
 ## 0.5.0 — Modified disk image export
 - Added an export action for the writable v86 hard-disk ArrayBuffer after VM shutdown.
@@ -46,7 +48,7 @@
 - Documented the manual export workflow and data-loss risk if the tab closes before export.
 
 ## 0.4.0 — Optional hard disk attachment
-- Added optional raw hard-disk image selection and attachment as v86 `hda`.
+- Added optional raw hard-disk image selection and attachment as v86 hda.
 - Included disk file metadata in snapshot compatibility checks.
 - Clarified that guest disk changes are retained through full VM snapshots only; standalone disk write-back/export is not implemented.
 

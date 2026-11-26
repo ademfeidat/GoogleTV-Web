@@ -188,7 +188,7 @@ function exportDiskImage() {
   const blob = new Blob([diskBuffer], { type: 'application/octet-stream' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
-  const baseName = (disk?.name || 'googletv-disk.img').replace(/\\.(img|raw|bin)$/i, '');
+  const baseName = (disk?.name || 'googletv-disk.img').replace(/\.(img|raw|bin)$/i, '');
   anchor.href = url;
   anchor.download = baseName + '-modified.img';
   document.body.append(anchor);

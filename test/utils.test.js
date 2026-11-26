@@ -23,7 +23,7 @@ test('disambiguates duplicate APK names case-insensitively', () => {
 
 test('normalizes safe guest paths to the 9p root', () => {
   assert.equal(safeGuestFilePath('example.apk'), '/example.apk');
-  assert.equal(safeGuestFilePath(' /folder\\\u005csub\\\u005cfile.apk '), '/folder/sub/file.apk');
+  assert.equal(safeGuestFilePath(String.raw` /folder\sub\file.apk `), '/folder/sub/file.apk');
 });
 
 test('rejects unsafe guest paths', () => {

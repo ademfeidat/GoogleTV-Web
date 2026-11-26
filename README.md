@@ -5,8 +5,9 @@ Experimental x86 virtual machine launcher for running a compatible Android-x86 /
 ## Compatibility reality
 This is not a Google-certified Google TV implementation and does not stream Google's operating system. It embeds the open-source `v86` x86-to-WebAssembly emulator. v86 supports 32-bit x86 guests; upstream lists Android-x86 4.4-r2 as tested. Android TV 7.1 and later are unverified and may fail to boot or run slowly. Google Play certification, DRM/HDCP, Widevine, hardware video acceleration and ARM-only APKs are not provided.
 
-## Current scope (0.9.2)
+## Current scope (0.9.3)
 - Browser ISO and firmware selection.
+- Selectable 256 MB, 384 MB or 512 MB guest RAM profiles. Lower-memory modes are experimental and may not boot Android; the chosen RAM size is included in snapshot compatibility checks.
 - Optional raw hard-disk image attachment as v86 `hda` (select an existing `.img`, `.raw` or `.bin` image).
 - Export the modified in-memory disk image after stopping the VM.
 - Save a complete copy of the raw virtual disk in browser IndexedDB after stopping the VM, then restore it later by selecting the same original disk file (name, size and last-modified metadata must match).

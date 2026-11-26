@@ -31,3 +31,12 @@ test('startup failure destroys a partially created VM', () => {
   assert.match(source, /if \(vm\) await vm\.destroy\(\)\.catch\(\(\) => \{\}\)/);
   assert.match(source, /vm = null/);
 });
+
+test('guest RAM presets are selectable and snapshot compatibility includes the selection', () => {
+  assert.match(source, /id="guest-ram"/);
+  assert.match(source, /value="268435456"/);
+  assert.match(source, /value="402653184"/);
+  assert.match(source, /value="536870912" selected/);
+  assert.match(source, /memorySize:\s*selectedMemorySize\(\)/);
+  assert.match(source, /\$\('guest-ram'\)\.disabled = !!vm \|\| starting/);
+});

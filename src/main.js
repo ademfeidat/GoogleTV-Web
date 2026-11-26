@@ -1,4 +1,5 @@
 import { V86 } from 'v86';
+import { formatBytes, planApkPaths, safeApkName, safeGuestFilePath } from './utils.js';
 import './style.css';
 
 const root = document.querySelector('#root');
@@ -59,11 +60,6 @@ let starting = false;
 let emulatorReady = false;
 
 const diagnostics = { diskRead: 0, diskWrite: 0, netRx: 0, netTx: 0, p9Read: 0, p9Write: 0, p9Attached: false, width: 0, height: 0, bpp: 0 };
-function formatBytes(bytes) {
-  if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
-  if (bytes >= 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return bytes + ' B';
-}
 function renderDiagnostics(state = vm ? (emulatorReady ? 'Ready / running' : 'Initializing') : 'VM stopped') {
   $('diag-state').textContent = state;
   $('diag-ram').textContent = (MEMORY_SIZE / 1048576) + ' MB';
@@ -386,22 +382,6 @@ async function stopVM() {
     setButtons();
   }
 }
-function safeApkName(name) {
-  const clean = name.normalize('NFKC').replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^\.+/, '') || 'application';
-  return clean.toLowerCase().endsWith('.apk') ? clean : clean + '.apk';
-}
-function planApkPaths(files) {
-  const used = new Set();
-  return files.map(file => {
-    const safeName = safeApkName(file.name);
-    const stem = safeName.slice(0, -4) || 'application';
-    let candidate = safeName;
-    let suffix = 2;
-    while (used.has(candidate.toLowerCase())) candidate = stem + '-' + suffix++ + '.apk';
-    used.add(candidate.toLowerCase());
-    return { file, path: '/' + candidate };
-  });
-}
 async function sendApkFiles() {
   if (!vm || !emulatorReady || starting) return;
   const files = Array.from($('apk-files').files || []);
@@ -434,16 +414,6 @@ async function sendApkFiles() {
     starting = false;
     setButtons();
   }
-}
-function safeGuestFilePath(rawPath) {
-  const path = rawPath.trim().replace(/\\/g, '/').replace(/^\/+/, '');
-  if (!path || path.split('/').some(part => !part || part === '.' || part === '..')) {
-    throw new Error('Enter a relative file path without empty, dot or parent-directory segments.');
-  }
-  if (!/^[a-zA-Z0-9._/-]+$/.test(path)) {
-    throw new Error('Use only letters, numbers, dots, underscores, hyphens and forward slashes in the path.');
-  }
-  return '/' + path;
 }
 async function fetchGuestFile() {
   if (!vm || !emulatorReady || starting) return;

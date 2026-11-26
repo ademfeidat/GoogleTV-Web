@@ -321,7 +321,7 @@ async function stopVM() {
   }
 }
 function safeApkName(name) {
-  const clean = name.normalize('NFKC').replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^\\.+/, '') || 'application';
+  const clean = name.normalize('NFKC').replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^\.+/, '') || 'application';
   return clean.toLowerCase().endsWith('.apk') ? clean : clean + '.apk';
 }
 function planApkPaths(files) {

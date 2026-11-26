@@ -5,15 +5,16 @@ Experimental x86 virtual machine launcher for running a compatible Android-x86 /
 ## Compatibility reality
 This is not a Google-certified Google TV implementation and does not stream Google's operating system. It embeds the open-source `v86` x86-to-WebAssembly emulator. v86 supports 32-bit x86 guests; upstream lists Android-x86 4.4-r2 as tested. Android TV 7.1 and later are unverified and may fail to boot or run slowly. Google Play certification, DRM/HDCP, Widevine, hardware video acceleration and ARM-only APKs are not provided.
 
-## Current scope (0.3.0)
+## Current scope (0.4.0)
 - Browser ISO and firmware selection.
+- Optional raw hard-disk image attachment as v86 `hda` (select an existing `.img`, `.raw` or `.bin` image).
 - v86 WebAssembly runtime integration.
 - Start, stop, restart and fullscreen controls.
 - User-triggered full VM state snapshots stored in browser IndexedDB.
 - Restore checks emulator version and selected ISO/firmware file metadata.
 - Browser storage estimate and saved-session deletion controls.
 
-Not implemented yet: standalone persistent virtual disk, ADB bridge, APK installation, network relay configuration, mobile-device validation and public deployment. A VM snapshot is not a separate disk image and can be very large because it contains machine memory/state.
+Not implemented yet: an independently managed writable disk backend with reliable disk-image export/write-back, ADB bridge, APK installation, network relay configuration, mobile-device validation and public deployment. The selected disk is attached to the VM and its live changes are included in a saved VM snapshot; this is not an independently exported disk backup. A VM snapshot can be very large because it contains machine memory/state.
 
 ## Development
 Run `npm install`, then `npm run dev`. Use `npm run build` for a production build. The postinstall script copies the v86 WASM artifact to `public/v86/` for Vite deployments.

@@ -1,7 +1,13 @@
 # Changelog
 
-## 0.2.0 — Browser emulator foundation
-- Added v86 browser emulator integration and a responsive control UI.
-- Added ISO and firmware selection plus start/stop/restart/fullscreen controls.
-- Documented Android-x86 compatibility limits and staged testing.
-- Deferred ADB/APK, persistent storage and networking until they can be tested end-to-end.
+## 0.3.0 — Session snapshot milestone
+- Added user-triggered full VM save and restore using the documented v86 state API.
+- Stored snapshots in browser IndexedDB with storage estimate and delete control.
+- Added restore checks for emulator version and selected ISO/firmware metadata.
+- Documented that snapshots are large, browser-local and not portable disk backups.
+- Verified dependency install, JavaScript syntax check and production build in GitHub Actions.
+
+## 0.2.1 — Browser emulator foundation
+- Added v86 WebAssembly runtime integration and initial VM launcher UI.
+- Added ISO and firmware selection with start, stop, restart and fullscreen controls.
+- Documented emulator compatibility limits and staged testing requirements.

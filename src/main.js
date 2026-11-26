@@ -12,6 +12,7 @@ root.innerHTML = `
 <div class="field"><label for="disk">Virtual hard disk (optional · raw .img/.bin)</label><input class="file" id="disk" type="file" accept=".img,.bin,.raw"><p class="hint" id="disk-name">No hard disk selected — live ISO mode only</p><button id="export-disk" disabled>Export modified disk image</button><div class="actions disk-actions"><button id="save-disk" disabled>Save disk to browser</button><button id="restore-disk" disabled>Restore local disk</button></div><p class="hint" id="disk-storage-info">Local disk backup not checked yet.</p></div>
 <div class="field"><label for="bios">SeaBIOS firmware (.bin)</label><input class="file" id="bios" type="file" accept=".bin"></div>
 <div class="field"><label for="vga">VGA BIOS (.bin)</label><input class="file" id="vga" type="file" accept=".bin"></div>
+<div class="field"><label for="guest-ram">Guest RAM</label><select class="file" id="guest-ram"><option value="268435456">256 MB · low-memory (experimental)</option><option value="402653184">384 MB · balanced (experimental)</option><option value="536870912" selected>512 MB · default</option></select><p class="hint">Lower values reduce host memory allocation but may prevent Android from booting. Change this only while the VM is stopped.</p></div>
 <div class="storage"><h3>Optional network</h3><p class="hint">Configure a v86-compatible network relay. Leave blank to disable networking. inbrowser connects browser VMs only; it does not provide internet access.</p><div class="field"><label for="network-type">Virtual network card</label><select class="file" id="network-type"><option value="virtio">VirtIO (recommended for modern guests)</option><option value="ne2k">NE2000 (fallback)</option></select></div><div class="field"><label for="network-relay">Network backend URL</label><input class="file" id="network-relay" type="text" placeholder="inbrowser or wss://your-relay.example/"></div><p class="hint">Public relays are not bundled. A secure WSS/WISP relay must be supplied by the operator.</p></div>
 <div class="storage"><h3>9p file exchange (experimental)</h3><p class="hint">Send APK files to the emulator's shared 9p filesystem. The guest must support VirtIO 9p and mount host9p before files become visible. Transfer does not install APKs automatically.</p><input class="file" id="apk-files" type="file" accept=".apk,application/vnd.android.package-archive" multiple><div class="actions"><button id="send-apks" disabled>Send APKs to VM</button></div><p class="hint" id="apk-status">Start the VM before sending files.</p><div class="field"><label for="guest-file-path">File path inside shared 9p folder</label><input class="file" id="guest-file-path" type="text" placeholder="example.apk" value="example.apk"></div><div class="actions"><button id="fetch-guest-file" disabled>Download file from VM</button></div><p class="hint" id="guest-file-status">Enter a path to a file that already exists in the guest's shared folder.</p></div>
 <div class="actions"><button class="primary" id="start" disabled>Start VM</button><button id="stop" disabled>Stop VM</button></div>
@@ -49,7 +50,8 @@ const DB_NAME = 'googletv-web-storage';
 const DB_VERSION = 2;
 const STATE_KEY = 'latest';
 const EMULATOR_VERSION = 'v86-0.5.476';
-const MEMORY_SIZE = 512 * 1024 * 1024;
+const DEFAULT_MEMORY_SIZE = 512 * 1024 * 1024;
+function selectedMemorySize() { return Number($('guest-ram').value) || DEFAULT_MEMORY_SIZE; }
 let vm = null;
 let iso = null;
 let disk = null;
@@ -89,7 +91,7 @@ function currentSignature() {
     bios: fileSignature($('bios').files[0]),
     vga: fileSignature($('vga').files[0]),
     emulator: EMULATOR_VERSION,
-    memorySize: MEMORY_SIZE,
+    memorySize: selectedMemorySize(),
   };
 }
 function sameSignature(a, b) {
@@ -157,6 +159,7 @@ function setButtons() {
   $('save-disk').disabled = !diskBuffer || !!vm || starting;
   $('restore-disk').disabled = !disk || !!vm || starting;
   $('start').disabled = !iso || starting || !!vm;
+  $('guest-ram').disabled = !!vm || starting;
   $('stop').disabled = !vm;
   $('save').disabled = !vm || starting;
   $('send-apks').disabled = !vm || !emulatorReady || starting || !$('apk-files').files.length;
@@ -228,6 +231,8 @@ async function restoreDiskLocally() {
   }
 }
 
+$('guest-ram').addEventListener('change', () => renderDiagnostics());
+
 $('disk').addEventListener('change', event => {
   disk = event.target.files?.[0] ?? null;
   diskBuffer = null;
@@ -265,7 +270,7 @@ async function createEmulator({ autostart = true } = {}) {
   }
   const instance = new V86({
     wasm_path: '/v86/v86.wasm',
-    memory_size: MEMORY_SIZE,
+    memory_size: selectedMemorySize(),
     vga_memory_size: 8 * 1024 * 1024,
     screen_container: $('screen'),
     bios: { url: urls[1] },

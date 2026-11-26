@@ -18,6 +18,18 @@ root.innerHTML = `
 <p class="notice"><b>Compatibility warning</b><br>v86 is a 32-bit x86 emulator. Upstream lists Android-x86 4.4-r2 as tested; Android TV 7.1 and newer are unverified.</p></aside>
 <section class="panel screen-panel"><div class="screen-head"><h2>Virtual display</h2><div><button id="restart">Restart</button> <button id="full">Fullscreen</button></div></div>
 <div class="screen" id="screen"><div style="white-space:pre;font:14px monospace;line-height:14px"></div><canvas style="display:none"></canvas></div><div class="status" id="status">Select an ISO and firmware files to begin.</div>
+<div class="diagnostics" aria-live="polite">
+  <div class="diagnostics-head"><h3>Live diagnostics</h3><span id="diag-state">VM stopped</span></div>
+  <div class="diagnostics-grid">
+    <div><small>Configured RAM</small><b id="diag-ram">512 MB</b></div>
+    <div><small>Display</small><b id="diag-display">Not detected</b></div>
+    <div><small>Disk read / write</small><b id="diag-disk">0 / 0 MB</b></div>
+    <div><small>Network RX / TX</small><b id="diag-network">0 / 0 KB</b></div>
+    <div><small>9p read / write</small><b id="diag-9p">0 / 0 KB</b></div>
+    <div><small>9p filesystem</small><b id="diag-9p-state">Not attached</b></div>
+  </div>
+  <p class="hint">Event counters reset for each new VM. Network traffic does not prove public internet connectivity; RAM is configured allocation, not measured usage.</p>
+</div>
 <div class="remote" aria-label="Touch remote control">
   <div class="remote-heading"><b>Touch remote</b><span class="hint">For phones and touch screens</span></div>
   <div class="remote-pad">
@@ -45,6 +57,27 @@ let diskBufferSource = null;
 let bootFiles = null;
 let starting = false;
 let emulatorReady = false;
+
+const diagnostics = { diskRead: 0, diskWrite: 0, netRx: 0, netTx: 0, p9Read: 0, p9Write: 0, p9Attached: false, width: 0, height: 0, bpp: 0 };
+function formatBytes(bytes) {
+  if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
+  if (bytes >= 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return bytes + ' B';
+}
+function renderDiagnostics(state = vm ? (emulatorReady ? 'Ready / running' : 'Initializing') : 'VM stopped') {
+  $('diag-state').textContent = state;
+  $('diag-ram').textContent = (MEMORY_SIZE / 1048576) + ' MB';
+  $('diag-display').textContent = diagnostics.width ? diagnostics.width + ' × ' + diagnostics.height + ' · ' + diagnostics.bpp + ' bpp' : 'Not detected';
+  $('diag-disk').textContent = formatBytes(diagnostics.diskRead) + ' / ' + formatBytes(diagnostics.diskWrite);
+  $('diag-network').textContent = formatBytes(diagnostics.netRx) + ' / ' + formatBytes(diagnostics.netTx);
+  $('diag-9p').textContent = formatBytes(diagnostics.p9Read) + ' / ' + formatBytes(diagnostics.p9Write);
+  $('diag-9p-state').textContent = diagnostics.p9Attached ? 'Attached' : 'Not attached';
+}
+function resetDiagnostics() {
+  Object.assign(diagnostics, { diskRead: 0, diskWrite: 0, netRx: 0, netTx: 0, p9Read: 0, p9Write: 0, p9Attached: false, width: 0, height: 0, bpp: 0 });
+  renderDiagnostics('Initializing');
+}
+
 
 function setStatus(message, kind = 'info') {
   $('status').textContent = message;
@@ -218,6 +251,7 @@ $('iso').addEventListener('change', event => {
 
 async function createEmulator({ autostart = true } = {}) {
   emulatorReady = false;
+  resetDiagnostics();
   const bios = $('bios').files[0];
   const vga = $('vga').files[0];
   if (!iso || !bios || !vga) throw new Error('Select the ISO, SeaBIOS and VGA BIOS files first.');
@@ -246,8 +280,24 @@ async function createEmulator({ autostart = true } = {}) {
     ...(relay ? { net_device: { type: netType, relay_url: relay } } : {}),
     autostart,
   });
+
+  instance.add_listener('ide-read-end', event => { diagnostics.diskRead += Number(event?.[1]) || 0; renderDiagnostics(); });
+  instance.add_listener('ide-write-end', event => { diagnostics.diskWrite += Number(event?.[1]) || 0; renderDiagnostics(); });
+  instance.add_listener('eth-receive-end', event => { diagnostics.netRx += Number(event?.[0]) || 0; renderDiagnostics(); });
+  instance.add_listener('eth-transmit-end', event => { diagnostics.netTx += Number(event?.[0]) || 0; renderDiagnostics(); });
+  instance.add_listener('9p-attach', () => { diagnostics.p9Attached = true; renderDiagnostics(); });
+  instance.add_listener('9p-read-end', event => { diagnostics.p9Read += Number(event?.[1]) || 0; renderDiagnostics(); });
+  instance.add_listener('9p-write-end', event => { diagnostics.p9Write += Number(event?.[1]) || 0; renderDiagnostics(); });
+  instance.add_listener('screen-set-size', event => {
+    diagnostics.width = Number(event?.[0]) || 0;
+    diagnostics.height = Number(event?.[1]) || 0;
+    diagnostics.bpp = Number(event?.[2]) || 0;
+    renderDiagnostics();
+  });
+
   instance.add_listener('emulator-ready', () => {
     emulatorReady = true;
+    renderDiagnostics('Ready / running');
     setStatus('Emulator ready. The 9p file-transfer interface is available if the guest supports it.', 'ok');
     setButtons();
   });
@@ -323,6 +373,7 @@ async function stopVM() {
     await vm.destroy();
     vm = null;
     emulatorReady = false;
+    renderDiagnostics('VM stopped');
     bootFiles?.forEach(URL.revokeObjectURL);
     bootFiles = null;
     $('screen').innerHTML = '<div style="white-space:pre;font:14px monospace;line-height:14px"></div><canvas style="display:none"></canvas>';
@@ -468,6 +519,7 @@ async function restoreSession() {
     await vm.restore_state(record.state);
     emulatorReady = true;
     await vm.run();
+    renderDiagnostics('Restored session / running');
     setStatus('Saved session restored.', 'ok');
   } catch (error) {
     if (vm) await vm.destroy().catch(() => {});
@@ -526,3 +578,5 @@ $('vga').addEventListener('change', refreshStorageControls);
 $('disk').addEventListener('change', refreshStorageControls);
 $('disk').addEventListener('change', refreshDiskControls);
 refreshStorageControls();
+
+renderDiagnostics('VM stopped');

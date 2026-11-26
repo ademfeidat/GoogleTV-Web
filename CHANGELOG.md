@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.1 — Bidirectional 9p file exchange
+- Added an optional guest-to-browser file download control using v86's read_file API.
+- Added strict relative-path validation to reject empty, dot and parent-directory path segments.
+- Updated the file-transfer panel to explain that the guest must mount host9p and that transfer does not install APKs.
+
 ## 0.8.0 — Touch remote
 - Added an on-screen directional pad with OK, Back and Home controls for touch devices.
 - Mapped remote buttons to v86 PC keyboard scan codes and gated them on emulator readiness.

@@ -385,7 +385,7 @@ async function sendApkFiles() {
   }
 }
 function safeGuestFilePath(rawPath) {
-  const path = rawPath.trim().replace(/\\/g, '/').replace(/^\\/+/, '');
+  const path = rawPath.trim().replace(/\\/g, '/').replace(/^\/+/, '');
   if (!path || path.split('/').some(part => !part || part === '.' || part === '..')) {
     throw new Error('Enter a relative file path without empty, dot or parent-directory segments.');
   }

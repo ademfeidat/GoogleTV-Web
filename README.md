@@ -12,6 +12,7 @@ This is not a Google-certified Google TV implementation and does not stream Goog
 - Save a complete copy of the raw virtual disk in browser IndexedDB after stopping the VM, then restore it later by selecting the same original disk file (name, size and last-modified metadata must match).
 - v86 WebAssembly runtime integration.
 - Start, stop, restart and fullscreen controls.
+- On-screen touch remote with directional navigation, OK, Back and Home key events.
 - User-triggered full VM state snapshots stored in browser IndexedDB.
 - Restore checks emulator version and selected ISO/firmware file metadata.
 - Browser storage estimate and saved-session deletion controls.

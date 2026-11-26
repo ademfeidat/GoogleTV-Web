@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.0 — Touch remote
+- Added an on-screen directional pad with OK, Back and Home controls for touch devices.
+- Mapped remote buttons to v86 PC keyboard scan codes and gated them on emulator readiness.
+
+
 ## 0.7.1
 - Fixed an emulator-ready event race that could leave startup or restore waiting for a readiness event that had already fired.
 - Reset readiness state whenever a new emulator instance is created.

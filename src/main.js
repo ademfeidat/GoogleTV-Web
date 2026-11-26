@@ -17,7 +17,18 @@ root.innerHTML = `
 <div class="storage"><h3>Session storage</h3><p class="hint">Save or restore the complete emulator state in this browser. Use the same ISO, optional disk image and firmware files when restoring.</p><div class="actions"><button id="save" disabled>Save session</button><button id="restore" disabled>Restore session</button></div><button class="danger" id="delete-save">Delete saved session</button><p class="hint" id="storage-info">Checking browser storage…</p></div>
 <p class="notice"><b>Compatibility warning</b><br>v86 is a 32-bit x86 emulator. Upstream lists Android-x86 4.4-r2 as tested; Android TV 7.1 and newer are unverified.</p></aside>
 <section class="panel screen-panel"><div class="screen-head"><h2>Virtual display</h2><div><button id="restart">Restart</button> <button id="full">Fullscreen</button></div></div>
-<div class="screen" id="screen"><div style="white-space:pre;font:14px monospace;line-height:14px"></div><canvas style="display:none"></canvas></div><div class="status" id="status">Select an ISO and firmware files to begin.</div></section>
+<div class="screen" id="screen"><div style="white-space:pre;font:14px monospace;line-height:14px"></div><canvas style="display:none"></canvas></div><div class="status" id="status">Select an ISO and firmware files to begin.</div>
+<div class="remote" aria-label="Touch remote control">
+  <div class="remote-heading"><b>Touch remote</b><span class="hint">For phones and touch screens</span></div>
+  <div class="remote-pad">
+    <span></span><button type="button" data-remote-key="up" aria-label="Up">▲</button><span></span>
+    <button type="button" data-remote-key="left" aria-label="Left">◀</button><button type="button" data-remote-key="select" class="remote-select">OK</button><button type="button" data-remote-key="right" aria-label="Right">▶</button>
+    <span></span><button type="button" data-remote-key="down" aria-label="Down">▼</button><span></span>
+  </div>
+  <div class="remote-actions"><button type="button" data-remote-key="back">Back</button><button type="button" data-remote-key="home">Home</button></div>
+  <p class="hint">Controls send standard PC keyboard scan codes. Guest key mapping depends on the Android build.</p>
+</div>
+</section>
 </section><footer>GoogleTV-Web · Local browser emulation · Session data stays in this browser profile.</footer></main>`;
 
 const $ = id => document.getElementById(id);
@@ -120,6 +131,9 @@ function setButtons() {
   $('stop').disabled = !vm;
   $('save').disabled = !vm || starting;
   $('send-apks').disabled = !vm || !emulatorReady || starting || !$('apk-files').files.length;
+  document.querySelectorAll('[data-remote-key]').forEach(button => {
+    button.disabled = !vm || !emulatorReady || starting;
+  });
   refreshStorageControls();
   refreshDiskControls();
 }
@@ -445,6 +459,23 @@ $('stop').addEventListener('click', stopVM);
 $('save').addEventListener('click', saveSession);
 $('send-apks').addEventListener('click', sendApkFiles);
 $('apk-files').addEventListener('change', setButtons);
+const remoteScancodes = {
+  up: [0xE0, 0x48], down: [0xE0, 0x50],
+  left: [0xE0, 0x4B], right: [0xE0, 0x4D],
+  select: [0x1C], back: [0x01], home: [0xE0, 0x47],
+};
+function sendRemoteKey(name) {
+  if (!vm || !emulatorReady || starting || !remoteScancodes[name]) return;
+  const make = remoteScancodes[name];
+  const release = make.map(code => code === 0xE0 ? code : code | 0x80);
+  vm.keyboard_send_scancodes(make);
+  setTimeout(() => {
+    if (vm && emulatorReady) vm.keyboard_send_scancodes(release);
+  }, 90);
+}
+document.querySelectorAll('[data-remote-key]').forEach(button => {
+  button.addEventListener('click', () => sendRemoteKey(button.dataset.remoteKey));
+});
 $('restore').addEventListener('click', restoreSession);
 $('delete-save').addEventListener('click', deleteSavedSession);
 $('restart').addEventListener('click', () => vm?.restart());

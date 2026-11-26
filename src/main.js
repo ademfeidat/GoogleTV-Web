@@ -8,10 +8,11 @@ root.innerHTML = `
 <section class="layout">
 <aside class="panel"><h2>Virtual machine setup</h2>
 <div class="field"><label for="iso">Android-x86 / Android TV ISO</label><input class="file" id="iso" type="file" accept=".iso"><p class="hint" id="iso-name">No ISO selected</p></div>
+<div class="field"><label for="disk">Virtual hard disk (optional · raw .img/.bin)</label><input class="file" id="disk" type="file" accept=".img,.bin,.raw"><p class="hint" id="disk-name">No hard disk selected — live ISO mode only</p></div>
 <div class="field"><label for="bios">SeaBIOS firmware (.bin)</label><input class="file" id="bios" type="file" accept=".bin"></div>
 <div class="field"><label for="vga">VGA BIOS (.bin)</label><input class="file" id="vga" type="file" accept=".bin"></div>
 <div class="actions"><button class="primary" id="start" disabled>Start VM</button><button id="stop" disabled>Stop VM</button></div>
-<div class="storage"><h3>Session storage</h3><p class="hint">Save or restore the complete emulator state in this browser. Use the same ISO and firmware files when restoring.</p><div class="actions"><button id="save" disabled>Save session</button><button id="restore" disabled>Restore session</button></div><button class="danger" id="delete-save">Delete saved session</button><p class="hint" id="storage-info">Checking browser storage…</p></div>
+<div class="storage"><h3>Session storage</h3><p class="hint">Save or restore the complete emulator state in this browser. Use the same ISO, optional disk image and firmware files when restoring.</p><div class="actions"><button id="save" disabled>Save session</button><button id="restore" disabled>Restore session</button></div><button class="danger" id="delete-save">Delete saved session</button><p class="hint" id="storage-info">Checking browser storage…</p></div>
 <p class="notice"><b>Compatibility warning</b><br>v86 is a 32-bit x86 emulator. Upstream lists Android-x86 4.4-r2 as tested; Android TV 7.1 and newer are unverified.</p></aside>
 <section class="panel screen-panel"><div class="screen-head"><h2>Virtual display</h2><div><button id="restart">Restart</button> <button id="full">Fullscreen</button></div></div>
 <div class="screen" id="screen"><div style="white-space:pre;font:14px monospace;line-height:14px"></div><canvas style="display:none"></canvas></div><div class="status" id="status">Select an ISO and firmware files to begin.</div></section>
@@ -25,6 +26,7 @@ const EMULATOR_VERSION = 'v86-0.5.476';
 const MEMORY_SIZE = 512 * 1024 * 1024;
 let vm = null;
 let iso = null;
+let disk = null;
 let bootFiles = null;
 let starting = false;
 
@@ -38,6 +40,7 @@ function fileSignature(file) {
 function currentSignature() {
   return {
     iso: fileSignature(iso),
+    disk: disk ? fileSignature(disk) : null,
     bios: fileSignature($('bios').files[0]),
     vga: fileSignature($('vga').files[0]),
     emulator: EMULATOR_VERSION,
@@ -104,17 +107,24 @@ function setButtons() {
   refreshStorageControls();
 }
 
+$('disk').addEventListener('change', event => {
+  disk = event.target.files?.[0] ?? null;
+  $('disk-name').textContent = disk ? disk.name + ' · ' + (disk.size / 1048576).toFixed(1) + ' MB' : 'No hard disk selected — live ISO mode only';
+  setButtons();
+});
+
 $('iso').addEventListener('change', event => {
   iso = event.target.files?.[0] ?? null;
   $('iso-name').textContent = iso ? iso.name + ' · ' + (iso.size / 1048576).toFixed(1) + ' MB' : 'No ISO selected';
   setButtons();
 });
 
-function createEmulator({ autostart = true } = {}) {
+async function createEmulator({ autostart = true } = {}) {
   const bios = $('bios').files[0];
   const vga = $('vga').files[0];
   if (!iso || !bios || !vga) throw new Error('Select the ISO, SeaBIOS and VGA BIOS files first.');
   const urls = [iso, bios, vga].map(file => URL.createObjectURL(file));
+  const diskBuffer = disk ? await disk.arrayBuffer() : null;
   bootFiles = urls;
   const instance = new V86({
     wasm_path: '/v86/v86.wasm',
@@ -124,6 +134,7 @@ function createEmulator({ autostart = true } = {}) {
     bios: { url: urls[1] },
     vga_bios: { url: urls[2] },
     cdrom: { url: urls[0] },
+    ...(diskBuffer ? { hda: { buffer: diskBuffer } } : {}),
     autostart,
   });
   instance.add_listener('emulator-ready', () => setStatus('Emulator ready.', 'ok'));
@@ -148,9 +159,9 @@ async function startVM() {
   setButtons();
   setStatus('Starting x86 emulator…', 'busy');
   try {
-    vm = createEmulator({ autostart: true });
+    vm = await createEmulator({ autostart: true });
     await waitForReady(vm);
-    setStatus('Emulator ready — guest boot is in progress.', 'ok');
+    setStatus(disk ? 'Emulator ready — ISO and selected hard disk attached. Disk writes are retained only inside a saved VM snapshot.' : 'Emulator ready — guest boot is in progress. No writable hard disk is attached.', 'ok');
   } catch (error) {
     if (vm) await vm.destroy().catch(() => {});
     vm = null;
@@ -198,7 +209,7 @@ async function saveSession() {
       emulator: EMULATOR_VERSION,
     };
     await dbRequest('readwrite', store => store.put(record));
-    setStatus('Session saved in this browser. You can restore it after reselecting the same ISO and firmware.', 'ok');
+    setStatus('Session saved in this browser, including attached disk state. Restore with the same ISO, disk and firmware files.', 'ok');
   } catch (error) {
     setStatus('Save failed: ' + (error?.name === 'QuotaExceededError' ? 'Browser storage quota exceeded. Free space or use a smaller guest memory setting.' : error.message), 'error');
   } finally {
@@ -216,10 +227,10 @@ async function restoreSession() {
     const record = await readSavedSession();
     if (!record) throw new Error('No saved session exists in this browser.');
     if (!sameSignature(record.signature, currentSignature())) {
-      throw new Error('Selected ISO or firmware does not match the saved session. Select the exact same files.');
+      throw new Error('Selected ISO or firmware does not match the saved session. Select the exact same ISO, disk (or no disk), and firmware files.');
     }
     if (record.emulator !== EMULATOR_VERSION) throw new Error('Saved state was created by a different emulator version.');
-    vm = createEmulator({ autostart: false });
+    vm = await createEmulator({ autostart: false });
     await waitForReady(vm);
     setStatus('Restoring saved virtual machine state…', 'busy');
     await vm.restore_state(record.state);
@@ -255,4 +266,5 @@ $('restart').addEventListener('click', () => vm?.restart());
 $('full').addEventListener('click', () => document.fullscreenElement ? document.exitFullscreen() : $('screen').requestFullscreen?.());
 $('bios').addEventListener('change', refreshStorageControls);
 $('vga').addEventListener('change', refreshStorageControls);
+$('disk').addEventListener('change', refreshStorageControls);
 refreshStorageControls();

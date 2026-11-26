@@ -12,7 +12,7 @@ root.innerHTML = `
 <div class="field"><label for="bios">SeaBIOS firmware (.bin)</label><input class="file" id="bios" type="file" accept=".bin"></div>
 <div class="field"><label for="vga">VGA BIOS (.bin)</label><input class="file" id="vga" type="file" accept=".bin"></div>
 <div class="storage"><h3>Optional network</h3><p class="hint">Configure a v86-compatible network relay. Leave blank to disable networking. inbrowser connects browser VMs only; it does not provide internet access.</p><div class="field"><label for="network-type">Virtual network card</label><select class="file" id="network-type"><option value="virtio">VirtIO (recommended for modern guests)</option><option value="ne2k">NE2000 (fallback)</option></select></div><div class="field"><label for="network-relay">Network backend URL</label><input class="file" id="network-relay" type="text" placeholder="inbrowser or wss://your-relay.example/"></div><p class="hint">Public relays are not bundled. A secure WSS/WISP relay must be supplied by the operator.</p></div>
-<div class="storage"><h3>APK transfer (experimental)</h3><p class="hint">Send APK files to the emulator's 9p shared folder. The guest OS must support the VirtIO 9p device and mount host9p before the files are visible. This transfers files; it does not install them automatically.</p><input class="file" id="apk-files" type="file" accept=".apk,application/vnd.android.package-archive" multiple><div class="actions"><button id="send-apks" disabled>Send APKs to VM</button></div><p class="hint" id="apk-status">Start the VM before sending files.</p></div>
+<div class="storage"><h3>9p file exchange (experimental)</h3><p class="hint">Send APK files to the emulator's shared 9p filesystem. The guest must support VirtIO 9p and mount host9p before files become visible. Transfer does not install APKs automatically.</p><input class="file" id="apk-files" type="file" accept=".apk,application/vnd.android.package-archive" multiple><div class="actions"><button id="send-apks" disabled>Send APKs to VM</button></div><p class="hint" id="apk-status">Start the VM before sending files.</p><div class="field"><label for="guest-file-path">File path inside shared 9p folder</label><input class="file" id="guest-file-path" type="text" placeholder="example.apk" value="example.apk"></div><div class="actions"><button id="fetch-guest-file" disabled>Download file from VM</button></div><p class="hint" id="guest-file-status">Enter a path to a file that already exists in the guest's shared folder.</p></div>
 <div class="actions"><button class="primary" id="start" disabled>Start VM</button><button id="stop" disabled>Stop VM</button></div>
 <div class="storage"><h3>Session storage</h3><p class="hint">Save or restore the complete emulator state in this browser. Use the same ISO, optional disk image and firmware files when restoring.</p><div class="actions"><button id="save" disabled>Save session</button><button id="restore" disabled>Restore session</button></div><button class="danger" id="delete-save">Delete saved session</button><p class="hint" id="storage-info">Checking browser storage…</p></div>
 <p class="notice"><b>Compatibility warning</b><br>v86 is a 32-bit x86 emulator. Upstream lists Android-x86 4.4-r2 as tested; Android TV 7.1 and newer are unverified.</p></aside>
@@ -131,6 +131,7 @@ function setButtons() {
   $('stop').disabled = !vm;
   $('save').disabled = !vm || starting;
   $('send-apks').disabled = !vm || !emulatorReady || starting || !$('apk-files').files.length;
+  $('fetch-guest-file').disabled = !vm || !emulatorReady || starting;
   document.querySelectorAll('[data-remote-key]').forEach(button => {
     button.disabled = !vm || !emulatorReady || starting;
   });
@@ -383,6 +384,45 @@ async function sendApkFiles() {
     setButtons();
   }
 }
+function safeGuestFilePath(rawPath) {
+  const path = rawPath.trim().replace(/\\/g, '/').replace(/^\\/+/, '');
+  if (!path || path.split('/').some(part => !part || part === '.' || part === '..')) {
+    throw new Error('Enter a relative file path without empty, dot or parent-directory segments.');
+  }
+  if (!/^[a-zA-Z0-9._/-]+$/.test(path)) {
+    throw new Error('Use only letters, numbers, dots, underscores, hyphens and forward slashes in the path.');
+  }
+  return '/' + path;
+}
+async function fetchGuestFile() {
+  if (!vm || !emulatorReady || starting) return;
+  starting = true;
+  setButtons();
+  try {
+    if (typeof vm.read_file !== 'function') {
+      throw new Error('This v86 build does not expose the 9p read_file API.');
+    }
+    const path = safeGuestFilePath($('guest-file-path').value);
+    $('guest-file-status').textContent = 'Reading ' + path + ' from the guest 9p filesystem…';
+    const bytes = await vm.read_file(path);
+    if (!(bytes instanceof Uint8Array)) throw new Error('The guest file API returned an unexpected data type.');
+    const blob = new Blob([bytes], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = path.split('/').pop();
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    $('guest-file-status').textContent = 'Downloaded ' + path.split('/').pop() + ' · ' + (bytes.byteLength / 1024).toFixed(1) + ' KB';
+  } catch (error) {
+    $('guest-file-status').textContent = 'Could not download guest file: ' + error.message + '. Confirm the file exists in the mounted host9p share.';
+  } finally {
+    starting = false;
+    setButtons();
+  }
+}
 async function saveSession() {
   if (!vm || starting) return;
   starting = true;
@@ -458,6 +498,7 @@ $('restore-disk').addEventListener('click', restoreDiskLocally);
 $('stop').addEventListener('click', stopVM);
 $('save').addEventListener('click', saveSession);
 $('send-apks').addEventListener('click', sendApkFiles);
+$('fetch-guest-file').addEventListener('click', fetchGuestFile);
 $('apk-files').addEventListener('change', setButtons);
 const remoteScancodes = {
   up: [0xE0, 0x48], down: [0xE0, 0x50],

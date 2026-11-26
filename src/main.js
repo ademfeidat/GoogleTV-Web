@@ -202,6 +202,7 @@ $('iso').addEventListener('change', event => {
 });
 
 async function createEmulator({ autostart = true } = {}) {
+  emulatorReady = false;
   const bios = $('bios').files[0];
   const vga = $('vga').files[0];
   if (!iso || !bios || !vga) throw new Error('Select the ISO, SeaBIOS and VGA BIOS files first.');
@@ -242,12 +243,26 @@ async function createEmulator({ autostart = true } = {}) {
   return instance;
 }
 function waitForReady(instance) {
+  if (emulatorReady) return Promise.resolve();
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('Emulator initialization timed out.')), 90000);
-    instance.add_listener('emulator-ready', () => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timeout);
+      instance.remove_listener?.('emulator-ready', onReady);
       resolve();
-    });
+    };
+    const onReady = () => finish();
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      instance.remove_listener?.('emulator-ready', onReady);
+      reject(new Error('Emulator initialization timed out.'));
+    }, 90000);
+    instance.add_listener('emulator-ready', onReady);
+    // The event may have fired between construction and listener registration.
+    if (emulatorReady) finish();
   });
 }
 async function startVM() {
@@ -306,8 +321,20 @@ async function stopVM() {
   }
 }
 function safeApkName(name) {
-  const clean = name.normalize('NFKC').replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^\.+/, '');
+  const clean = name.normalize('NFKC').replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^\\.+/, '') || 'application';
   return clean.toLowerCase().endsWith('.apk') ? clean : clean + '.apk';
+}
+function planApkPaths(files) {
+  const used = new Set();
+  return files.map(file => {
+    const safeName = safeApkName(file.name);
+    const stem = safeName.slice(0, -4) || 'application';
+    let candidate = safeName;
+    let suffix = 2;
+    while (used.has(candidate.toLowerCase())) candidate = stem + '-' + suffix++ + '.apk';
+    used.add(candidate.toLowerCase());
+    return { file, path: '/' + candidate };
+  });
 }
 async function sendApkFiles() {
   if (!vm || !emulatorReady || starting) return;
@@ -323,12 +350,15 @@ async function sendApkFiles() {
   setButtons();
   const sent = [];
   try {
-    for (const file of files) {
-      const path = '/' + safeApkName(file.name);
-      $('apk-status').textContent = 'Transferring ' + file.name + '…';
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      await vm.create_file(path, bytes);
-      sent.push(path);
+    if (typeof vm.create_file !== 'function') {
+      throw new Error('This v86 build does not expose the 9p create_file API.');
+    }
+    const plan = planApkPaths(files);
+    for (const item of plan) {
+      $('apk-status').textContent = 'Transferring ' + item.file.name + '…';
+      const bytes = new Uint8Array(await item.file.arrayBuffer());
+      await vm.create_file(item.path, bytes);
+      sent.push(item.path);
     }
     $('apk-status').textContent = 'Transferred ' + sent.length + ' APK file(s) to the guest 9p filesystem root: ' + sent.join(', ');
     setStatus('APK transfer completed. Mount host9p inside the guest to access the files; installation is a separate guest-side action.', 'ok');

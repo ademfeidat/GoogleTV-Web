@@ -8,7 +8,7 @@ root.innerHTML = `
 <section class="layout">
 <aside class="panel"><h2>Virtual machine setup</h2>
 <div class="field"><label for="iso">Android-x86 / Android TV ISO</label><input class="file" id="iso" type="file" accept=".iso"><p class="hint" id="iso-name">No ISO selected</p></div>
-<div class="field"><label for="disk">Virtual hard disk (optional · raw .img/.bin)</label><input class="file" id="disk" type="file" accept=".img,.bin,.raw"><p class="hint" id="disk-name">No hard disk selected — live ISO mode only</p></div>
+<div class="field"><label for="disk">Virtual hard disk (optional · raw .img/.bin)</label><input class="file" id="disk" type="file" accept=".img,.bin,.raw"><p class="hint" id="disk-name">No hard disk selected — live ISO mode only</p><button id="export-disk" disabled>Export modified disk image</button></div>
 <div class="field"><label for="bios">SeaBIOS firmware (.bin)</label><input class="file" id="bios" type="file" accept=".bin"></div>
 <div class="field"><label for="vga">VGA BIOS (.bin)</label><input class="file" id="vga" type="file" accept=".bin"></div>
 <div class="actions"><button class="primary" id="start" disabled>Start VM</button><button id="stop" disabled>Stop VM</button></div>
@@ -27,6 +27,8 @@ const MEMORY_SIZE = 512 * 1024 * 1024;
 let vm = null;
 let iso = null;
 let disk = null;
+let diskBuffer = null;
+let diskBufferSource = null;
 let bootFiles = null;
 let starting = false;
 
@@ -109,6 +111,9 @@ function setButtons() {
 
 $('disk').addEventListener('change', event => {
   disk = event.target.files?.[0] ?? null;
+  diskBuffer = null;
+  diskBufferSource = null;
+  $('export-disk').disabled = true;
   $('disk-name').textContent = disk ? disk.name + ' · ' + (disk.size / 1048576).toFixed(1) + ' MB' : 'No hard disk selected — live ISO mode only';
   setButtons();
 });
@@ -124,7 +129,11 @@ async function createEmulator({ autostart = true } = {}) {
   const vga = $('vga').files[0];
   if (!iso || !bios || !vga) throw new Error('Select the ISO, SeaBIOS and VGA BIOS files first.');
   const urls = [iso, bios, vga].map(file => URL.createObjectURL(file));
-  const diskBuffer = disk ? await disk.arrayBuffer() : null;
+  if (disk && (!diskBuffer || diskBufferSource !== disk)) {
+    diskBuffer = await disk.arrayBuffer();
+    diskBufferSource = disk;
+  }
+  if (!disk) diskBuffer = null;
   bootFiles = urls;
   const instance = new V86({
     wasm_path: '/v86/v86.wasm',
@@ -173,6 +182,20 @@ async function startVM() {
     setButtons();
   }
 }
+function exportDiskImage() {
+  if (!diskBuffer || vm || starting) return;
+  const blob = new Blob([diskBuffer], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  const baseName = (disk?.name || 'googletv-disk.img').replace(/\\.(img|raw|bin)$/i, '');
+  anchor.href = url;
+  anchor.download = baseName + '-modified.img';
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  setStatus('Modified disk image exported. Keep this downloaded file and select it next time to continue from the updated disk.', 'ok');
+}
 async function stopVM() {
   if (!vm || starting) return;
   starting = true;
@@ -183,7 +206,8 @@ async function stopVM() {
     bootFiles?.forEach(URL.revokeObjectURL);
     bootFiles = null;
     $('screen').innerHTML = '<div style="white-space:pre;font:14px monospace;line-height:14px"></div><canvas style="display:none"></canvas>';
-    setStatus('VM stopped. Save the session before stopping if you need to resume it later.', 'warn');
+    setStatus(diskBuffer ? 'VM stopped. You can export the modified hard disk image now.' : 'VM stopped. Save the session before stopping if you need to resume it later.', 'warn');
+    $('export-disk').disabled = !diskBuffer;
   } catch (error) {
     setStatus('Stop failed: ' + error.message, 'error');
   } finally {
@@ -258,6 +282,7 @@ async function deleteSavedSession() {
 }
 
 $('start').addEventListener('click', startVM);
+$('export-disk').addEventListener('click', exportDiskImage);
 $('stop').addEventListener('click', stopVM);
 $('save').addEventListener('click', saveSession);
 $('restore').addEventListener('click', restoreSession);

@@ -7,7 +7,7 @@ const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8'
 test('v86 boot configuration includes firmware, ISO, memory and display', () => {
   assert.match(source, /new V86\s*\(\s*\{/);
   assert.match(source, /wasm_path:\s*['"]\/v86\/v86\.wasm['"]/);
-  assert.match(source, /memory_size:\s*MEMORY_SIZE/);
+  assert.match(source, /memory_size:\s*selectedMemorySize\(\)/);
   assert.match(source, /bios:\s*\{\s*url:\s*urls\[1\]\s*\}/);
   assert.match(source, /vga_bios:\s*\{\s*url:\s*urls\[2\]\s*\}/);
   assert.match(source, /cdrom:\s*\{\s*url:\s*urls\[0\]\s*\}/);

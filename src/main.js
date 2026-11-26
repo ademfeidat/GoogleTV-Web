@@ -50,7 +50,7 @@ const DB_NAME = 'googletv-web-storage';
 const DB_VERSION = 2;
 const STATE_KEY = 'latest';
 const EMULATOR_VERSION = 'v86-0.5.476';
-const DEFAULT_MEMORY_SIZE = 512 * 1024 * 1024;
+const DEFAULT_selectedMemorySize() = 512 * 1024 * 1024;
 function selectedMemorySize() { return Number($('guest-ram').value) || DEFAULT_MEMORY_SIZE; }
 let vm = null;
 let iso = null;
@@ -64,7 +64,7 @@ let emulatorReady = false;
 const diagnostics = { diskRead: 0, diskWrite: 0, netRx: 0, netTx: 0, p9Read: 0, p9Write: 0, p9Attached: false, width: 0, height: 0, bpp: 0 };
 function renderDiagnostics(state = vm ? (emulatorReady ? 'Ready / running' : 'Initializing') : 'VM stopped') {
   $('diag-state').textContent = state;
-  $('diag-ram').textContent = (MEMORY_SIZE / 1048576) + ' MB';
+  $('diag-ram').textContent = (selectedMemorySize() / 1048576) + ' MB';
   $('diag-display').textContent = diagnostics.width ? diagnostics.width + ' × ' + diagnostics.height + ' · ' + diagnostics.bpp + ' bpp' : 'Not detected';
   $('diag-disk').textContent = formatBytes(diagnostics.diskRead) + ' / ' + formatBytes(diagnostics.diskWrite);
   $('diag-network').textContent = formatBytes(diagnostics.netRx) + ' / ' + formatBytes(diagnostics.netTx);

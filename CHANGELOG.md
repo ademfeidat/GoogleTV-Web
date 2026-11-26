@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.1 — Automated safety tests
+- Extracted pure file-transfer helpers for isolated testing.
+- Added Node.js tests for byte formatting, APK filename sanitization, duplicate naming and 9p path traversal rejection.
+- Added the test suite to GitHub Actions CI.
+
 ## 0.9.0 — Live emulator diagnostics
 - Added an in-session diagnostics panel for configured RAM, detected display mode, IDE disk read/write traffic, virtual NIC RX/TX traffic and 9p attach/read/write events.
 - Wired counters to v86's documented event interface; counters reset when a new VM instance is created.

@@ -1,0 +1,12 @@
+import { createRequire } from 'node:module';
+import { mkdir, readdir, copyFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+const require=createRequire(import.meta.url);
+const entry=require.resolve('v86');
+const buildDir=dirname(entry);
+const outputDir=join(process.cwd(),'public','v86');
+await mkdir(outputDir,{recursive:true});
+const files=(await readdir(buildDir)).filter(name=>/^v86.*\.wasm$/.test(name));
+if(!files.length)throw new Error('No v86 WASM files found in '+buildDir);
+for(const file of files)await copyFile(join(buildDir,file),join(outputDir,file));
+console.log('Copied v86 WASM assets:',files.join(', '));

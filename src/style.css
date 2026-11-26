@@ -2,3 +2,14 @@
 .disk-actions{margin-top:8px}.disk-actions button{flex:1;min-width:120px}#disk-storage-info{line-height:1.5;margin:8px 0 0}
 
 select.file{appearance:auto}.storage .field{margin:10px 0}.storage input.file,.storage select.file{font:12px system-ui}.storage input[type=text]{min-height:42px}.storage #send-apks{width:100%}#apk-status{overflow-wrap:anywhere;line-height:1.5}
+
+.remote{margin-top:14px;padding:16px;border:1px solid #263853;border-radius:14px;background:#0b1422}
+.remote-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;margin-bottom:12px}
+.remote-pad{display:grid;grid-template-columns:repeat(3,58px);grid-template-rows:repeat(3,48px);gap:7px;justify-content:center}
+.remote-pad button,.remote-actions button{touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.remote-pad button{font-size:16px;padding:8px;border-radius:13px}
+.remote-pad .remote-select{font-size:12px;font-weight:700;background:#315ca7;border-color:#4c7bc7}
+.remote-actions{display:flex;justify-content:center;gap:9px;margin-top:10px}
+.remote-actions button{min-width:92px}
+.remote>p{font-size:10px;text-align:center;line-height:1.5;margin:12px 0 0}
+@media(max-width:820px){.remote{padding:13px}.remote-pad{grid-template-columns:repeat(3,64px);grid-template-rows:repeat(3,52px)}.remote-actions button{min-height:44px}}

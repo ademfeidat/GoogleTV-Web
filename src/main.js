@@ -50,7 +50,7 @@ const DB_NAME = 'googletv-web-storage';
 const DB_VERSION = 2;
 const STATE_KEY = 'latest';
 const EMULATOR_VERSION = 'v86-0.5.476';
-const DEFAULT_selectedMemorySize() = 512 * 1024 * 1024;
+const DEFAULT_MEMORY_SIZE = 512 * 1024 * 1024;
 function selectedMemorySize() { return Number($('guest-ram').value) || DEFAULT_MEMORY_SIZE; }
 let vm = null;
 let iso = null;

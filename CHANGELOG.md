@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0 — Network configuration and experimental APK transfer
+- Added optional network device configuration using v86 net_device with an explicit relay URL.
+- Added an empty 9p filesystem and APK file transfer through the documented create_file API.
+- Added guest compatibility caveats: 9p mounting is guest-kernel dependent and file transfer does not install APKs.
+- Kept networking disabled unless the user supplies a compatible relay; no public relay or internet service is bundled.
+
+
 ## 0.6.0 — Local virtual disk backups
 - Added explicit save and restore controls for complete raw disk images using a dedicated IndexedDB object store.
 - Restricted disk backup and restore actions to a stopped VM to avoid copying a disk while the guest may still be writing.

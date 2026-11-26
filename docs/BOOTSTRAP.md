@@ -22,3 +22,8 @@ The app exposes v86 `save_state()` and `restore_state()` through user-triggered 
 - Investigate guest networking and ADB/APK transfer only after a guest boots reliably.
 
 Firmware binaries are not bundled. Verify their source and redistribution rights before deployment.
+
+## Network and APK transfer (experimental)
+The application can attach a v86 network device only when a backend URL is explicitly supplied. Use a compatible inbrowser, WebSocket (ws:// / wss://) or WISP (wisp:// / wisps://) backend. The inbrowser backend is limited to v86 instances in the same browser and does not provide internet access. A WebSocket/WISP relay is an external service and is not included or operated by this project. Prefer TLS-secured relay URLs on public networks.
+
+The application also initializes an empty v86 9p filesystem and exposes APK transfer through vm.create_file(). Transferred files are written at the root of the shared filesystem. The Android guest must include a compatible VirtIO 9p driver and mount the host9p tag (typically with a 9p mount command) before it can see those files. Android-x86 / Android TV kernel support has not been verified here. File transfer is not APK installation; install the APK from inside the guest using its own package installer after confirming that the file is visible. Do not assume ARM-only APKs will run in an x86 guest.

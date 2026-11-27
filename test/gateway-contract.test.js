@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { createGatewayServer, isAuthorized, mapInputAction, parseInstalledPackages, parseLauncherPackages, validatePackageName, validateTapCoordinates } from "../server/gateway/src/server.js";
+import { createGatewayServer, isAuthorized, mapInputAction, parseInstalledPackages, parseLauncherPackages, pruneRateBuckets, validatePackageName, validateTapCoordinates } from "../server/gateway/src/server.js";
 
 test("gateway maps the TV remote allowlist to Android keycodes", () => {
   assert.equal(mapInputAction("DPAD_UP"), "19");
@@ -457,4 +457,17 @@ test("gateway CORS preflight exposes only the configured origin and API headers"
   } finally {
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }
+});
+
+
+test("gateway rate-limit storage prunes expired and oldest buckets to a hard cap", () => {
+  const buckets = new Map([
+    ["expired", { start: 1, count: 1 }],
+    ["oldest", { start: 90_000, count: 1 }],
+    ["middle", { start: 95_000, count: 1 }],
+    ["newest", { start: 99_000, count: 1 }]
+  ]);
+  pruneRateBuckets(buckets, 100_000, 2);
+  assert.deepEqual([...buckets.keys()], ["middle", "newest"]);
+  assert.equal(buckets.size, 2);
 });

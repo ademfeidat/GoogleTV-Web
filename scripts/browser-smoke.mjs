@@ -88,7 +88,7 @@ try {
     body: JSON.stringify({ count: 2, apps: [{ packageName: 'com.example.tv' }, { packageName: 'org.sample.player' }] })
   }));
   await redroidPage.locator('#refresh-apps').click();
-  await redroidPage.waitForFunction(() => document.querySelector('#apps-status')?.textContent.includes('2 installed user app'));
+  await redroidPage.waitForFunction(() => document.querySelector('#apps-status')?.textContent.includes('2 launchable app'));
   assert.equal(await redroidPage.locator('#installed-apps .rt-app-item').count(), 2);
   assert.equal(await redroidPage.locator('#home-apps .rt-home-launch').count(), 2, 'TV home should render every installed app');
   assert.equal(await redroidPage.locator('#home-app-count').innerText(), '2 installed');

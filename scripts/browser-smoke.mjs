@@ -90,6 +90,9 @@ try {
   await redroidPage.locator('#refresh-apps').click();
   await redroidPage.waitForFunction(() => document.querySelector('#apps-status')?.textContent.includes('2 installed user app'));
   assert.equal(await redroidPage.locator('#installed-apps .rt-app-item').count(), 2);
+  assert.equal(await redroidPage.locator('#home-apps .rt-home-launch').count(), 2, 'TV home should render every installed app');
+  assert.equal(await redroidPage.locator('#home-app-count').innerText(), '2 installed');
+  assert.match(await redroidPage.locator('#home-apps').innerText(), /com.example.tv/);
   assert.equal(await redroidPage.locator('#app-filter').isEnabled(), true);
   assert.equal(await redroidPage.locator('#installed-apps .rt-app-group').count(), 2, 'Apps should be grouped alphabetically');
   await redroidPage.locator('#app-filter').fill('sample');
@@ -102,6 +105,7 @@ try {
   await redroidPage.locator('.rt-app-row').filter({ hasText: 'com.example.tv' }).locator('.rt-app-favorite').click();
   assert.equal(await redroidPage.locator('.rt-app-row').filter({ hasText: 'com.example.tv' }).locator('.rt-app-favorite').getAttribute('aria-pressed'), 'true');
   assert.deepEqual(await redroidPage.evaluate(() => JSON.parse(localStorage.getItem('googletv.redroid.favorite-packages'))), ['com.example.tv']);
+  assert.equal(await redroidPage.locator('#home-favorites .rt-home-launch').count(), 1, 'Favorite app should be pinned on TV home');
   await redroidPage.locator('#favorites-toggle').click();
   assert.equal(await redroidPage.locator('#installed-apps .rt-app-item').count(), 1, 'Favorites view should show only favorited packages');
   assert.match(await redroidPage.locator('#installed-apps').innerText(), /com.example.tv/);
@@ -111,6 +115,14 @@ try {
   assert.equal(await redroidPage.locator('#package-name').inputValue(), 'com.example.tv');
   await redroidPage.locator('#package-name').fill('com.example.tv');
   assert.equal(await redroidPage.locator('#launch-app').isEnabled(), true);
+  let homeLaunchPayload;
+  await redroidPage.route(origin + '/api/launch', async route => {
+    homeLaunchPayload = route.request().postDataJSON();
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, packageName: 'com.example.tv', output: 'Events injected: 1' }) });
+  });
+  await redroidPage.locator('#home-apps .rt-home-launch').filter({ hasText: 'com.example.tv' }).click();
+  await redroidPage.waitForFunction(() => document.querySelector('#home-status')?.textContent.includes('Launch request sent'));
+  assert.deepEqual(homeLaunchPayload, { packageName: 'com.example.tv' }, 'TV home tile must call the validated package launch API');
   let launchPayload;
   await redroidPage.route(`${origin}/api/launch`, async route => {
     launchPayload = route.request().postDataJSON();

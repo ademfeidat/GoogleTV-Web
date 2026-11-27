@@ -13,9 +13,28 @@ services:
       - redroid-data:/data
     expose:
       - "5555"
-    # Optional local-only ADB maintenance access. Never change this to 0.0.0.0.
     ports:
       - "127.0.0.1:5555:5555"
+    networks:
+      - android-private
+
+  gateway:
+    build:
+      context: ../../server/gateway
+    container_name: googletv-gateway
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      GATEWAY_TOKEN: ${GATEWAY_TOKEN:?Set GATEWAY_TOKEN in deploy/redroid/.env}
+      ANDROID_ADB_HOST: redroid
+      ANDROID_ADB_PORT: "5555"
+      ALLOWED_ORIGIN: ${ALLOWED_ORIGIN:-}
+    depends_on:
+      - redroid
+    expose:
+      - "8080"
+    ports:
+      - "127.0.0.1:8080:8080"
     networks:
       - android-private
 

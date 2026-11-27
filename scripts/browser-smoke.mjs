@@ -66,12 +66,12 @@ try {
   assert.equal(await redroidPage.locator('#install-apk').isDisabled(), true);
   assert.equal(await redroidPage.locator('[data-key="DPAD_UP"]').isDisabled(), true);
   assert.equal(await redroidPage.locator('#device-id').inputValue(), 'redroid:5555');
-  await redroidPage.route('${origin}/api/status', route => route.fulfill({
+  await redroidPage.route(`${origin}/api/status`, route => route.fulfill({
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({ connected: true, bootCompleted: true, androidRelease: '14', model: 'Redroid test device' })
   }));
-  await redroidPage.locator('#gateway-url').fill('${origin}');
+  await redroidPage.locator('#gateway-url').fill(`${origin}`);
   await redroidPage.locator('#gateway-token').fill('a'.repeat(64));
   await redroidPage.locator('#stream-url').fill('https://stream.example');
   await redroidPage.locator('#connect').click();

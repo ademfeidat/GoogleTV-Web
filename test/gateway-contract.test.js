@@ -131,3 +131,58 @@ test("gateway rejects unsupported and empty APK uploads before ADB access", asyn
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }
 });
+
+
+test("gateway status reports Android properties through the injected ADB adapter", async () => {
+  const calls = [];
+  const runAdb = async args => {
+    calls.push(args);
+    const key = args.at(-1);
+    if (key === "sys.boot_completed") return { stdout: "1\\n", stderr: "" };
+    if (key === "ro.build.version.release") return { stdout: "14\\n", stderr: "" };
+    if (key === "ro.product.model") return { stdout: "Redroid\\n", stderr: "" };
+    if (args[0] === "get-state") return { stdout: "device\\n", stderr: "" };
+    return { stdout: "", stderr: "" };
+  };
+  const token = "test-token-with-at-least-32-characters";
+  const server = createGatewayServer({ token, runAdb });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  try {
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/status`, {
+      headers: { Authorization: "Bearer " + token }
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      connected: true, bootCompleted: true, androidRelease: "14", model: "Redroid"
+    });
+    assert.ok(calls.some(args => args.includes("getprop") && args.includes("sys.boot_completed")));
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});
+
+test("gateway remote input sends only the mapped Android keycode", async () => {
+  const calls = [];
+  const runAdb = async args => {
+    calls.push(args);
+    if (args[0] === "get-state") return { stdout: "device\\n", stderr: "" };
+    return { stdout: "", stderr: "" };
+  };
+  const token = "test-token-with-at-least-32-characters";
+  const server = createGatewayServer({ token, runAdb });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  try {
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/input`, {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "DPAD_CENTER" })
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { ok: true });
+    assert.ok(calls.some(args => args.slice(-3).join(" ") === "input keyevent 23"));
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.4 — Emulator lifecycle test coverage
+- Extracted the emulator-ready wait logic into a small lifecycle utility with injectable timeout functions.
+- Added mock-v86 tests for normal readiness, already-ready state, the listener-registration race, timeout rejection and listener cleanup.
+- Kept the production boot flow on the same readiness contract; these tests validate lifecycle handling without claiming that an Android guest booted.
+
 ## 0.9.3 — Configurable low-memory profiles
 - Added selectable 256 MB, 384 MB and 512 MB guest RAM allocations for constrained host devices.
 - Kept 512 MB as the default and marked lower-memory profiles experimental because Android guest requirements vary.

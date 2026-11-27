@@ -47,16 +47,21 @@ else
   warn "Could not determine host page size."
 fi
 
-if [ -d /sys/fs/binderfs ] || grep -qs 'binder' /proc/filesystems 2>/dev/null; then
-  ok "BinderFS or a binder filesystem entry is present."
+if grep -qs 'binder' /proc/filesystems 2>/dev/null; then
+  ok "Kernel exposes a binder filesystem type."
 else
-  fail "BinderFS is not detected. Check kernel support and binder_linux."
+  fail "Binder filesystem support is not exposed by the running kernel."
 fi
 
-if [ -e /dev/binder ] || [ -e /dev/binderfs/binder ] || [ -d /sys/fs/binderfs ]; then
-  ok "A binder device or binderfs mount is present."
+binder_mount=0
+if command -v mountpoint >/dev/null 2>&1; then
+  mountpoint -q /dev/binderfs 2>/dev/null && binder_mount=1
+  mountpoint -q /sys/fs/binderfs 2>/dev/null && binder_mount=1
+fi
+if [ -e /dev/binder ] || [ -e /dev/binderfs/binder-control ] || [ -e /sys/fs/binderfs/binder-control ] || [ "$binder_mount" -eq 1 ]; then
+  ok "Binder device or binderfs mount is present."
 else
-  fail "No binder device/mount detected."
+  fail "No Binder device or mounted binderfs instance detected."
 fi
 
 if grep -qs '^CONFIG_ANDROID_BINDER_IPC=y' "/boot/config-$(uname -r)" 2>/dev/null; then

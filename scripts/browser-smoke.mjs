@@ -98,6 +98,15 @@ try {
   assert.equal(await redroidPage.locator('#installed-apps .rt-app-item').count(), 0);
   assert.match(await redroidPage.locator('#installed-apps').innerText(), /No installed apps match this filter/);
   await redroidPage.locator('#app-filter').fill('');
+  assert.equal(await redroidPage.locator('#favorites-toggle').isEnabled(), true);
+  await redroidPage.locator('.rt-app-row').filter({ hasText: 'com.example.tv' }).locator('.rt-app-favorite').click();
+  assert.equal(await redroidPage.locator('.rt-app-row').filter({ hasText: 'com.example.tv' }).locator('.rt-app-favorite').getAttribute('aria-pressed'), 'true');
+  assert.deepEqual(await redroidPage.evaluate(() => JSON.parse(localStorage.getItem('googletv.redroid.favorite-packages'))), ['com.example.tv']);
+  await redroidPage.locator('#favorites-toggle').click();
+  assert.equal(await redroidPage.locator('#installed-apps .rt-app-item').count(), 1, 'Favorites view should show only favorited packages');
+  assert.match(await redroidPage.locator('#installed-apps').innerText(), /com.example.tv/);
+  await redroidPage.locator('#favorites-toggle').click();
+  assert.equal(await redroidPage.locator('#installed-apps .rt-app-item').count(), 2);
   await redroidPage.locator('#installed-apps .rt-app-item').filter({ hasText: 'com.example.tv' }).click();
   assert.equal(await redroidPage.locator('#package-name').inputValue(), 'com.example.tv');
   await redroidPage.locator('#package-name').fill('com.example.tv');
@@ -117,7 +126,8 @@ try {
   await redroidPage.locator('#disconnect').click();
   assert.equal(await redroidPage.locator('#app-filter').isDisabled(), true, 'Disconnect must disable and clear app search');
   assert.equal(await redroidPage.locator('#installed-apps .rt-app-item').count(), 0, 'Disconnect must clear the installed-app list');
-  assert.equal(await redroidPage.evaluate(() => localStorage.length), 0, 'Gateway token must not be persisted in localStorage');
+  assert.equal(await redroidPage.evaluate(() => localStorage.getItem('googletv.redroid.favorite-packages')), '["com.example.tv"]', 'Only non-secret favorite package IDs may be persisted');
+  assert.equal(await redroidPage.evaluate(() => Object.keys(localStorage).some(key => /token|gateway/i.test(key))), false, 'Gateway credentials must never be persisted in localStorage');
   assert.deepEqual(redroidErrors, [], `Redroid dashboard runtime errors: ${redroidErrors.join('; ')}`);
   await redroidPage.close();
 

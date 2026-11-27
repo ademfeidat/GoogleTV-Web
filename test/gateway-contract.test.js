@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { createGatewayServer, isAuthorized, mapInputAction, validateTapCoordinates } from "../server/gateway/src/server.js";
+import { createGatewayServer, isAuthorized, mapInputAction, validatePackageName, validateTapCoordinates } from "../server/gateway/src/server.js";
 
 test("gateway maps the TV remote allowlist to Android keycodes", () => {
   assert.equal(mapInputAction("DPAD_UP"), "19");
@@ -218,6 +218,62 @@ test("gateway streams APK bytes to the ADB installer and returns its result", as
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { ok: true, output: "Success" });
     assert.ok(calls.some(args => args.includes("install") && args.includes("-r")));
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});
+
+
+test("gateway validates Android package names before launch", () => {
+  assert.equal(validatePackageName("com.example.tv"), "com.example.tv");
+  assert.equal(validatePackageName("org.example_app.player2"), "org.example_app.player2");
+  for (const value of ["", "com", ".example.app", "com..app", "com.example;reboot", "com.example/app", "com.example app", null, 42]) {
+    assert.throws(() => validatePackageName(value));
+  }
+});
+
+test("gateway launches only the validated package using Android monkey", async () => {
+  const calls = [];
+  const runAdb = async args => {
+    calls.push(args);
+    if (args.includes("get-state")) return { stdout: "device", stderr: "" };
+    if (args.includes("monkey")) return { stdout: "Events injected: 1", stderr: "" };
+    return { stdout: "", stderr: "" };
+  };
+  const token = "test-token-with-at-least-32-characters";
+  const server = createGatewayServer({ token, runAdb });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  try {
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/launch`, {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ packageName: "com.example.tv" })
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      ok: true, packageName: "com.example.tv", output: "Events injected: 1"
+    });
+    assert.ok(calls.some(args => args.slice(-5).join(" ") === "shell monkey -p com.example.tv 1"));
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});
+
+test("gateway rejects shell-like package launch input without invoking ADB", async () => {
+  let invoked = false;
+  const token = "test-token-with-at-least-32-characters";
+  const server = createGatewayServer({ token, runAdb: async () => { invoked = true; return { stdout: "", stderr: "" }; } });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  try {
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/launch`, {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ packageName: "com.example; reboot" })
+    });
+    assert.equal(response.status, 400);
+    assert.equal(invoked, false);
   } finally {
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }

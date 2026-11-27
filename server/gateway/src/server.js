@@ -41,7 +41,7 @@ export function validateTapCoordinates(x, y) {
 
 export function validatePackageName(value) {
   if (typeof value !== "string" || value.length > 255 ||
-      !/^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$/.test(value)) {
+      !/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/.test(value)) {
     throw new Error("Enter a valid Android package name, such as com.example.app");
   }
   return value;

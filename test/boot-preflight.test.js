@@ -47,3 +47,7 @@ test('Start control requires the ISO and both firmware files', () => {
   assert.match(source, /\$\('bios'\)\.addEventListener\('change', setButtons\)/);
   assert.match(source, /\$\('vga'\)\.addEventListener\('change', setButtons\)/);
 });
+
+test('initial page setup applies the disabled states to VM controls', () => {
+  assert.match(source, /setButtons\(\);\s*renderDiagnostics\('VM stopped'\);/);
+});

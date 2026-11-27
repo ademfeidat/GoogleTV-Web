@@ -55,6 +55,18 @@ Run the same audit before deployment:
 docker compose --profile streaming --env-file deploy/redroid/.env -f deploy/redroid/docker-compose.yml config --format json | python3 scripts/redroid_compose_audit.py
 ```
 
+## Sidecar-to-Android preflight
+
+After starting the stack with the optional streaming profile, run:
+
+```bash
+bash scripts/redroid-stream-preflight.sh
+```
+
+The script executes ADB from inside the streaming sidecar, connects to `redroid:5555` on the private Docker network, and waits for `sys.boot_completed=1`. It is a useful prerequisite check: it proves the sidecar can reach a booted Android guest through ADB. It does **not** prove ws-scrcpy login, WebSocket negotiation, video frames, audio, browser decoding, or remote-input round trips. Those remain manual runtime acceptance steps.
+
+Override the environment file, Compose file, ADB target, or timeout with `REDROID_ENV_FILE`, `REDROID_COMPOSE_FILE`, `REDROID_STREAM_ADB_TARGET`, and `REDROID_STREAM_BOOT_TIMEOUT_SECONDS` respectively.
+
 ## Required proof before adoption
 
 1. Start Redroid and verify `adb connect redroid:5555` from the stream container.

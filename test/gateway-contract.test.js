@@ -278,3 +278,51 @@ test("gateway rejects shell-like package launch input without invoking ADB", asy
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }
 });
+
+
+test("gateway lists validated third-party Android packages from the connected device", async () => {
+  const calls = [];
+  const runAdb = async args => {
+    calls.push(args);
+    if (args.includes("get-state")) return { stdout: "device", stderr: "" };
+    if (args.includes("pm")) return {
+      stdout: "package:com.example.tv\\npackage:org.sample.player\\npackage:com.example.tv\\npackage:bad;command\\npackage:com.valid_app.client\\n",
+      stderr: ""
+    };
+    return { stdout: "", stderr: "" };
+  };
+  const token = "test-token-with-at-least-32-characters";
+  const server = createGatewayServer({ token, runAdb });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  try {
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/apps`, {
+      headers: { Authorization: "Bearer " + token }
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      count: 3,
+      apps: [
+        { packageName: "com.example.tv" },
+        { packageName: "com.valid_app.client" },
+        { packageName: "org.sample.player" }
+      ]
+    });
+    assert.ok(calls.some(args => args.slice(-4).join(" ") === "pm list packages -3"));
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});
+
+test("gateway app list requires authentication", async () => {
+  const server = createGatewayServer({ runAdb: async () => { throw new Error("ADB must not run"); } });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  try {
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/apps`);
+    assert.equal(response.status, 401);
+    assert.deepEqual(await response.json(), { error: "Unauthorized" });
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});

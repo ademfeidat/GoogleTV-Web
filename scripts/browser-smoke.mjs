@@ -45,9 +45,11 @@ try {
   assert.equal(await page.locator('#diag-ram').innerText(), '384 MB', 'RAM selector must update diagnostics');
 
   await page.locator('#iso').setInputFiles({ name: 'smoke.iso', mimeType: 'application/x-iso9660-image', buffer: Buffer.from('not-a-bootable-iso') });
+  assert.equal(await page.locator('#start').isDisabled(), true, 'ISO alone must not enable Start without firmware');
   await page.locator('#bios').setInputFiles({ name: 'bios.bin', mimeType: 'application/octet-stream', buffer: Buffer.from('bios-placeholder') });
+  assert.equal(await page.locator('#start').isDisabled(), true, 'Both firmware files are required');
   await page.locator('#vga').setInputFiles({ name: 'vgabios.bin', mimeType: 'application/octet-stream', buffer: Buffer.from('vga-placeholder') });
-  assert.equal(await page.locator('#start').isEnabled(), true, 'Start must enable after required files are selected');
+  assert.equal(await page.locator('#start').isEnabled(), true, 'Start enables only after ISO and both firmware files are selected');
   assert.equal(await page.locator('#guest-ram').isEnabled(), true);
   assert.deepEqual(pageErrors, [], `Browser runtime errors: ${pageErrors.join('; ')}`);
 

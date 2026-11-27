@@ -91,3 +91,12 @@
 - Added gateway contract tests and CI syntax validation.
 - Documented the secure streaming integration evaluation for ws-scrcpy-web.
 - This is migration scaffolding only: real Redroid boot, browser video streaming, production login and full UI migration remain unverified.
+
+## Unreleased — Redroid dashboard integration
+
+- Added a dedicated `/redroid.html` browser dashboard alongside the preserved v86 page.
+- Added in-memory gateway credential entry, Android status checks, allowlisted TV remote actions and direct APK upload/install.
+- Added an embedded ws-scrcpy-web stream view using its documented `/embed.html?device=` interface.
+- Added endpoint validation requiring HTTPS except for loopback development, and tests for URL encoding and remote action allowlisting.
+- Extended Chromium smoke tests to load both the legacy app and the Redroid dashboard.
+- The dashboard is an integration client only; it does not prove a live Android runtime or stream.

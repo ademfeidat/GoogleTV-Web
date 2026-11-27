@@ -1,4 +1,4 @@
-> **Redroid migration branch:** This branch is transitioning the runtime from browser-side v86 to server-side Redroid. The browser app is still the v0.9.5 v86 implementation. The branch now includes a Redroid deployment profile and an authenticated ADB gateway for status, remote input and APK installation; live video streaming and a real Android boot are not verified yet. See [docs/REDROID-MIGRATION.md](docs/REDROID-MIGRATION.md), [docs/STREAMING-INTEGRATION.md](docs/STREAMING-INTEGRATION.md) and [deploy/redroid/README.md](deploy/redroid/README.md).
+> **Redroid migration branch:** The original v0.9.5 v86 experience remains available at `/`, and the new Redroid dashboard is at `/redroid.html`. The branch includes a Redroid Docker profile, authenticated ADB gateway, APK installation controls and a browser page that embeds ws-scrcpy-web. The UI and CI tests pass; a real Redroid boot and live stream still require a compatible Linux host. See [migration plan](docs/REDROID-MIGRATION.md), [streaming integration](docs/STREAMING-INTEGRATION.md) and [deployment guide](deploy/redroid/README.md).
 
 # GoogleTV-Web
 

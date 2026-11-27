@@ -533,6 +533,6 @@ $('bios').addEventListener('change', setButtons);
 $('vga').addEventListener('change', setButtons);
 $('disk').addEventListener('change', refreshStorageControls);
 $('disk').addEventListener('change', refreshDiskControls);
-refreshStorageControls();
+setButtons();
 
 renderDiagnostics('VM stopped');

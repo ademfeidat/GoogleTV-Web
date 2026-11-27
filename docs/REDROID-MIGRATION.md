@@ -62,8 +62,9 @@ The browser must never connect directly to an unauthenticated ADB port.
 
 ### 5. Persistence
 - Store Android `/data` on a persistent volume.
-- Provide controlled stop/start and backup/restore operations.
-- Backups must be consistent: stop or quiesce the container before archiving the data directory.
+- Back up and restore the volume with `scripts/redroid-data.sh`; backups are only consistent while Redroid is stopped.
+- Restore is explicitly destructive and requires `--yes`. The script verifies archive integrity and rejects absolute and parent-traversal entry paths, but operators should restore only trusted archives.
+- The helper handles Android `/data` only. ws-scrcpy state, host configuration, Docker images and secrets require separate backup procedures.
 - Never store credentials, ADB keys or session secrets in the frontend bundle or public repository.
 
 ### 6. Network and security
@@ -110,4 +111,5 @@ The browser must never connect directly to an unauthenticated ADB port.
 - CI validates gateway syntax, contract tests, browser smoke tests and Compose configuration.
 - Added a dedicated `/redroid.html` browser dashboard alongside the preserved v86 page. It can check gateway status, send allowlisted remote actions, upload/install APKs, and embed ws-scrcpy-web's documented stream URL.
 - Extended the production build and Chromium smoke test to cover both HTML entry points, app launch and installed-app discovery.
-- Not yet verified: actual Redroid host boot, live scrcpy video/audio, WSS browser stream, end-to-end APK install on a real guest, production multi-user authentication and automated persistence/restore tests.
+- Added a Docker-volume backup/restore utility for Android `/data`, including archive path checks and CI shell syntax validation.
+- Not yet verified: actual Redroid host boot, live scrcpy video/audio, WSS browser stream, end-to-end APK install on a real guest, production multi-user authentication, and backup/restore against a live Android volume.

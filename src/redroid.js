@@ -29,6 +29,7 @@ root.innerHTML = `
       <div class="rt-status" id="launch-status">Connect to Android and enter an installed app's package name.</div>
       <div class="rt-apps-head"><h2>Installed apps</h2><button class="rt-button" id="refresh-apps" disabled>Refresh list</button></div>
       <div class="rt-status" id="apps-status">Connect to Android to discover installed user apps.</div>
+      <div class="rt-field rt-app-filter"><label for="app-filter">Find an installed app</label><input class="rt-input" id="app-filter" type="search" placeholder="Filter by package name…" autocomplete="off" disabled></div>
       <div class="rt-app-list" id="installed-apps" aria-live="polite"></div>
     </aside>
     <section class="rt-panel">
@@ -114,9 +115,13 @@ function setAppsStatus(message, kind = "warn") {
   $("apps-status").textContent = message;
   $("apps-status").dataset.kind = kind;
 }
-function renderApps(apps) {
+let installedApps = [];
+
+function renderApps(apps = installedApps) {
   const list = $("installed-apps");
+  const query = $("app-filter").value.trim().toLowerCase();
   list.replaceChildren();
+  const filtered = apps.filter(app => app.packageName.toLowerCase().includes(query));
   if (!apps.length) {
     const empty = document.createElement("p");
     empty.className = "rt-note";
@@ -124,18 +129,40 @@ function renderApps(apps) {
     list.append(empty);
     return;
   }
-  for (const app of apps) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "rt-app-item";
-    button.textContent = app.packageName;
-    button.title = "Select " + app.packageName + " to launch";
-    button.addEventListener("click", () => {
-      $("package-name").value = app.packageName;
-      $("launch-app").disabled = !connected;
-      $("launch-status").textContent = "Selected " + app.packageName + ". Press Launch app to start it.";
-    });
-    list.append(button);
+  if (!filtered.length) {
+    const empty = document.createElement("p");
+    empty.className = "rt-note";
+    empty.textContent = "No installed apps match this filter.";
+    list.append(empty);
+    return;
+  }
+  const groups = new Map();
+  for (const app of filtered) {
+    const initial = app.packageName[0].toUpperCase();
+    if (!groups.has(initial)) groups.set(initial, []);
+    groups.get(initial).push(app);
+  }
+  for (const [initial, entries] of groups) {
+    const section = document.createElement("section");
+    section.className = "rt-app-group";
+    const heading = document.createElement("h3");
+    heading.className = "rt-app-group-title";
+    heading.textContent = initial;
+    section.append(heading);
+    for (const app of entries) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "rt-app-item";
+      button.textContent = app.packageName;
+      button.title = "Select " + app.packageName + " to launch";
+      button.addEventListener("click", () => {
+        $("package-name").value = app.packageName;
+        $("launch-app").disabled = !connected;
+        $("launch-status").textContent = "Selected " + app.packageName + ". Press Launch app to start it.";
+      });
+      section.append(button);
+    }
+    list.append(section);
   }
 }
 async function refreshApps() {
@@ -144,7 +171,9 @@ async function refreshApps() {
   setAppsStatus("Reading installed user apps from Android…");
   try {
     const result = await api("/api/apps");
-    renderApps(result.apps || []);
+    installedApps = (result.apps || []).filter(app => typeof app.packageName === "string");
+    $("app-filter").disabled = false;
+    renderApps();
     setAppsStatus((result.count || 0) + " installed user app(s) found.", "ok");
   } catch (error) {
     setAppsStatus(error.message, "error");
@@ -205,6 +234,9 @@ function openStream(newTab = false) {
 $("connect").addEventListener("click", checkAndroid);
 $("disconnect").addEventListener("click", () => {
   gatewayBase = ""; accessToken = ""; streamUrl = "";
+  installedApps = [];
+  $("app-filter").value = "";
+  $("app-filter").disabled = true;
   $("gateway-token").value = "";
   $("gateway-url").value = "";
   setConnected(false);
@@ -228,6 +260,7 @@ $("apk-file").addEventListener("change", () => { $("install-apk").disabled = !co
 $("install-apk").addEventListener("click", installApk);
 $("launch-app").addEventListener("click", launchApp);
 $("refresh-apps").addEventListener("click", refreshApps);
+$("app-filter").addEventListener("input", () => renderApps());
 $("package-name").addEventListener("input", () => {
   $("launch-app").disabled = !connected || !$("package-name").value.trim();
 });

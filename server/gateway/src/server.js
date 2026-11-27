@@ -53,7 +53,7 @@ export function parseLauncherPackages(...outputs) {
     for (const line of String(output || "").split(/\r?\n/)) {
       const value = line.trim();
       const named = value.match(/^packageName=(.+)$/);
-      const component = value.match(/^([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+)\/[A-Za-z_$][A-Za-z0-9_.$]*$/);
+      const component = value.match(/^([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+)\/[A-Za-z_$.][A-Za-z0-9_.$]*$/);
       const packageName = named?.[1]?.trim() || component?.[1] || "";
       if (!packageName) continue;
       try { validatePackageName(packageName); packages.add(packageName); } catch { /* Ignore non-package output. */ }

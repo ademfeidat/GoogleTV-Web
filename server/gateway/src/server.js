@@ -73,6 +73,18 @@ export function parseInstalledPackages(output) {
   return [...packages].sort((a, b) => a.localeCompare(b)).slice(0, 300);
 }
 
+export function pruneRateBuckets(buckets, now = Date.now(), maxEntries = 2048) {
+  for (const [key, bucket] of buckets) {
+    if (now - bucket.start > 60_000) buckets.delete(key);
+  }
+  while (buckets.size > maxEntries) {
+    const oldestKey = buckets.keys().next().value;
+    if (oldestKey === undefined) break;
+    buckets.delete(oldestKey);
+  }
+  return buckets.size;
+}
+
 export function isAuthorized(header, expectedToken = TOKEN) {
   if (!expectedToken || typeof header !== "string" || !header.startsWith("Bearer ")) return false;
   const supplied = Buffer.from(header.slice(7));
@@ -115,9 +127,7 @@ function rateLimit(req, res) {
   if (now - bucket.start > 60_000) { bucket.start = now; bucket.count = 0; }
   bucket.count += 1;
   rateBuckets.set(key, bucket);
-  if (rateBuckets.size > 2048) {
-    for (const [ip, item] of rateBuckets) if (now - item.start > 60_000) rateBuckets.delete(ip);
-  }
+  if (rateBuckets.size > 2048) pruneRateBuckets(rateBuckets, now, 2048);
   if (bucket.count > 120) { json(res, 429, { error: "Rate limit exceeded" }); return false; }
   return true;
 }

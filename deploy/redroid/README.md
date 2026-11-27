@@ -15,6 +15,24 @@ Redroid runs Android userspace against the Linux host kernel. The official setup
 
 Run the read-only host check from the repository root:
 
+The Python diagnostic is the consolidated report for Linux/Docker/Binder/GPU
+prerequisites and (optionally) Android boot state. It uses only Python's
+standard library and does not change host settings:
+
+```bash
+# Host prerequisites plus a one-shot ADB check (JSON output is also supported).
+python3 scripts/redroid_doctor.py
+
+# Wait up to three minutes for Android to finish booting.
+python3 scripts/redroid_doctor.py --wait --timeout 180
+
+# Host-only diagnostics, without requiring ADB.
+python3 scripts/redroid_doctor.py --skip-adb
+```
+
+A warning means a capability was not detected; a failure means a required
+check failed or an explicitly requested Android boot check did not pass.
+
 ```bash
 bash scripts/redroid-host-preflight.sh
 ```

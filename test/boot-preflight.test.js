@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const source = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+const lifecycle = await readFile(new URL('../src/vm-lifecycle.js', import.meta.url), 'utf8');
 
 test('v86 boot configuration includes firmware, ISO, memory and display', () => {
   assert.match(source, /new V86\s*\(\s*\{/);
@@ -22,8 +23,8 @@ test('guest filesystem and optional networking are explicit', () => {
 test('startup waits for emulator-ready and has a finite timeout', () => {
   assert.match(source, /add_listener\('emulator-ready'/);
   assert.match(source, /function waitForReady\(instance\)/);
-  assert.match(source, /setTimeout\(\(\) => \{/);
-  assert.match(source, /Emulator initialization timed out\./);
+  assert.match(lifecycle, /setTimer\(\(\) => \{/);
+  assert.match(lifecycle, /Emulator initialization timed out\./);
   assert.match(source, /await waitForReady\(vm\)/);
 });
 

@@ -64,6 +64,7 @@ try {
   assert.equal(await redroidPage.locator('h1').innerText(), 'GoogleTV Web');
   assert.equal(await redroidPage.locator('#open-stream').isDisabled(), true);
   assert.equal(await redroidPage.locator('#install-apk').isDisabled(), true);
+  assert.equal(await redroidPage.locator('#launch-app').isDisabled(), true);
   assert.equal(await redroidPage.locator('[data-key="DPAD_UP"]').isDisabled(), true);
   assert.equal(await redroidPage.locator('#device-id').inputValue(), 'redroid:5555');
   await redroidPage.route(`${origin}/api/status`, route => route.fulfill({
@@ -79,6 +80,20 @@ try {
   assert.equal(await redroidPage.locator('#android-release').innerText(), '14');
   assert.equal(await redroidPage.locator('#open-stream').isEnabled(), true);
   assert.equal(await redroidPage.locator('[data-key="DPAD_UP"]').isEnabled(), true);
+  await redroidPage.locator('#package-name').fill('com.example.tv');
+  assert.equal(await redroidPage.locator('#launch-app').isEnabled(), true);
+  let launchPayload;
+  await redroidPage.route(`${origin}/api/launch`, async route => {
+    launchPayload = route.request().postDataJSON();
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: true, packageName: 'com.example.tv', output: 'Events injected: 1' })
+    });
+  });
+  await redroidPage.locator('#launch-app').click();
+  await redroidPage.waitForFunction(() => document.querySelector('#launch-status')?.textContent.includes('Launch command sent'));
+  assert.deepEqual(launchPayload, { packageName: 'com.example.tv' }, 'Launch control must send only the selected package name');
   assert.equal(await redroidPage.evaluate(() => localStorage.length), 0, 'Gateway token must not be persisted in localStorage');
   assert.deepEqual(redroidErrors, [], `Redroid dashboard runtime errors: ${redroidErrors.join('; ')}`);
   await redroidPage.close();

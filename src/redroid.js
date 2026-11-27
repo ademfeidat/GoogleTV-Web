@@ -402,12 +402,32 @@ $("package-name").addEventListener("input", () => {
 document.querySelectorAll("[data-key]").forEach(button => button.addEventListener("click", () => sendRemote(button.dataset.key)));
 root.addEventListener("keydown", event => {
   const current = event.target.closest?.(".rt-home-launch");
-  if (!current || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
-  const grid = current.closest(".rt-home-grid");
-  const tiles = [...grid.querySelectorAll(".rt-home-launch")];
-  const index = tiles.indexOf(current);
-  const columns = Math.max(1, getComputedStyle(grid).gridTemplateColumns.split(" ").length);
-  const delta = event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : event.key === "ArrowUp" ? -columns : columns;
-  const next = tiles[index + delta];
-  if (next) { event.preventDefault(); next.focus(); }
+  const directions = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
+  if (!current || !directions.includes(event.key)) return;
+
+  // Navigate spatially across every launcher shelf, not just the current grid.
+  const currentRect = current.getBoundingClientRect();
+  const currentX = currentRect.left + currentRect.width / 2;
+  const currentY = currentRect.top + currentRect.height / 2;
+  const candidates = [...root.querySelectorAll(".rt-home-launch")].filter(tile => tile !== current);
+  let best = null;
+  let bestScore = Infinity;
+
+  for (const tile of candidates) {
+    const rect = tile.getBoundingClientRect();
+    const dx = rect.left + rect.width / 2 - currentX;
+    const dy = rect.top + rect.height / 2 - currentY;
+    const primary = event.key === "ArrowLeft" ? -dx
+      : event.key === "ArrowRight" ? dx
+      : event.key === "ArrowUp" ? -dy : dy;
+    if (primary <= 0) continue;
+    const secondary = (event.key === "ArrowLeft" || event.key === "ArrowRight") ? Math.abs(dy) : Math.abs(dx);
+    const score = primary + secondary * 2.25;
+    if (score < bestScore) { best = tile; bestScore = score; }
+  }
+
+  if (best) {
+    event.preventDefault();
+    best.focus();
+  }
 });

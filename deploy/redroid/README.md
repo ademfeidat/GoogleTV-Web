@@ -36,7 +36,7 @@ The first script checks host prerequisites; the second checks a live ADB connect
 
 The Redroid ADB port is bound to host loopback and is also available only on the private Docker network. The gateway HTTP API is bound to host loopback at `127.0.0.1:8080`. Do not change either host binding to `0.0.0.0` and do not publish ADB to the public internet.
 
-## Optional ws-scrcpy-web streaming sidecar
+## Open the Redroid browser dashboard\n\nDeploy the static frontend and open `/redroid.html`. Enter the gateway base URL and token. Configure the exact frontend origin in `ALLOWED_ORIGIN` (scheme and host, without a path or trailing slash). The streaming URL should point to the ws-scrcpy-web service through HTTPS; the ADB device ID is normally `redroid:5555`. The browser token remains in memory and is not persisted by the frontend.\n\n## Optional ws-scrcpy-web streaming sidecar
 
 The `streaming` profile adds the ws-scrcpy-web browser streamer on `127.0.0.1:8000`:
 

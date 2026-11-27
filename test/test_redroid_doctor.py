@@ -45,6 +45,9 @@ class RedroidDoctorTests(unittest.TestCase):
         self.assertEqual(by_name["docker_cli"].status, "FAIL")
         self.assertEqual(by_name["binder"].status, "WARN")
         self.assertIn("binder", by_name["binder"].detail.lower())
+        self.assertIn("page_size", by_name)
+        self.assertIn("ipv6", by_name)
+        self.assertIn("dma_heap", by_name)
 
     def test_unsupported_host_is_reported_as_failure(self):
         checks = inspect_host(

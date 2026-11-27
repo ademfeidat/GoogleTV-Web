@@ -326,3 +326,43 @@ test("gateway app list requires authentication", async () => {
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }
 });
+
+
+test("gateway CORS preflight exposes only the configured origin and API headers", async () => {
+  const token = "test-token-with-at-least-32-characters";
+  const server = createGatewayServer({
+    token,
+    allowedOrigin: "https://tv.example.test",
+    runAdb: async () => { throw new Error("Preflight must not invoke ADB"); }
+  });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  const endpoint = `http://127.0.0.1:${address.port}/api/status`;
+  try {
+    const allowed = await fetch(endpoint, {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://tv.example.test",
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "authorization"
+      }
+    });
+    assert.equal(allowed.status, 204);
+    assert.equal(allowed.headers.get("access-control-allow-origin"), "https://tv.example.test");
+    assert.equal(allowed.headers.get("access-control-allow-methods"), "GET, POST, OPTIONS");
+    assert.equal(allowed.headers.get("access-control-allow-headers"), "Authorization, Content-Type");
+    assert.equal(allowed.headers.get("access-control-max-age"), "600");
+
+    const denied = await fetch(endpoint, {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://attacker.example.test",
+        "Access-Control-Request-Method": "GET"
+      }
+    });
+    assert.equal(denied.status, 403);
+    assert.equal(denied.headers.get("access-control-allow-origin"), null);
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});

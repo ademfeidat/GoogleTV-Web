@@ -138,10 +138,10 @@ test("gateway status reports Android properties through the injected ADB adapter
   const runAdb = async args => {
     calls.push(args);
     const key = args.at(-1);
-    if (key === "sys.boot_completed") return { stdout: "1\\n", stderr: "" };
-    if (key === "ro.build.version.release") return { stdout: "14\\n", stderr: "" };
-    if (key === "ro.product.model") return { stdout: "Redroid\\n", stderr: "" };
-    if (args[0] === "get-state") return { stdout: "device\\n", stderr: "" };
+    if (key === "sys.boot_completed") return { stdout: "1", stderr: "" };
+    if (key === "ro.build.version.release") return { stdout: "14", stderr: "" };
+    if (key === "ro.product.model") return { stdout: "Redroid", stderr: "" };
+    if (args[0] === "get-state") return { stdout: "device", stderr: "" };
     return { stdout: "", stderr: "" };
   };
   const token = "test-token-with-at-least-32-characters";

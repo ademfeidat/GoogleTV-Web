@@ -181,6 +181,26 @@ async function handle(req, res, { token = TOKEN, allowedOrigin = ALLOWED_ORIGIN,
     }
   }
 
+  if (req.method === "GET" && req.url === "/api/apps") {
+    try {
+      await ensureDevice(runAdb);
+      const { stdout } = await runAdb(["-s", SERIAL, "shell", "pm", "list", "packages", "-3"], 30_000);
+      const packages = [...new Set(stdout.split(/\\r?\\n/)
+        .map(line => line.trim())
+        .filter(line => line.startsWith("package:"))
+        .map(line => line.slice("package:".length))
+        .filter(name => {
+          try { validatePackageName(name); return true; } catch { return false; }
+        }))].sort((a, b) => a.localeCompare(b)).slice(0, 300);
+      return json(res, 200, { apps: packages.map(packageName => ({ packageName })), count: packages.length }, headers);
+    } catch (error) {
+      return json(res, 502, {
+        error: "Could not list installed Android apps",
+        detail: String(error.stderr || error.message).slice(0, 800)
+      }, headers);
+    }
+  }
+
   if (req.method === "POST" && req.url === "/api/input") {
     try {
       const body = await readJson(req);

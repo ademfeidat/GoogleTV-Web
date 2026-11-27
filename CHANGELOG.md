@@ -4,6 +4,7 @@
 - Added a headless Chromium smoke test against the built production app.
 - Verified page initialization, initial control states, RAM selector-to-diagnostics wiring and required-file selection enabling the Start control.
 - Added Chromium installation and browser smoke execution to GitHub Actions CI.
+- Fixed initial control-state setup so remote buttons start disabled until the VM is ready.
 - Fixed the Start control so it remains disabled until an ISO, SeaBIOS and VGA BIOS are selected; added browser and static regression coverage.
 - The smoke test deliberately does not start v86 with placeholder firmware or claim an Android guest boot.
 

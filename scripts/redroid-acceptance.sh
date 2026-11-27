@@ -83,7 +83,7 @@ if [[ -n "$STREAM_URL" ]]; then
   stream_base="${STREAM_URL%/}"
   stream_code="$(curl --max-time 12 -sS -o /dev/null -w '%{http_code}' "$stream_base/" || true)"
   case "$stream_code" in
-    200) pass "Streaming sidecar HTTP endpoint is reachable." ;;
+    200) warn "Streaming sidecar HTTP endpoint is reachable, but HTTP 200 does not prove authenticated video/audio streaming." ;;
     301|302|303|307|308|401|403)
       warn "Streaming sidecar is reachable but returned HTTP $stream_code; complete its login in a browser before claiming stream acceptance."
       ;;
@@ -93,4 +93,4 @@ else
   info "WS_SCRCPY_URL not set; streaming endpoint was not checked."
 fi
 
-printf '\nAcceptance checks completed. This script does not measure video quality, audio sync, DRM, GPU acceleration or long-term persistence.\n'
+printf '\nAcceptance checks completed. A reachable streaming HTTP endpoint is not stream acceptance. This script does not verify sidecar login, live video/audio frames, input round-trips, video quality, audio sync, DRM, GPU acceleration or long-term persistence.\n'

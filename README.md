@@ -39,6 +39,6 @@ Firmware binaries are not bundled. Verify their source and redistribution rights
 Project source: MIT. Emulator dependency: BSD-2-Clause; see upstream license.
 ## Redroid dashboard preview
 
-Open `/redroid.html` on the deployed site to use the new Redroid browser dashboard. Enter the gateway URL and its private bearer token (the token is kept in page memory only), check Android status, configure the ws-scrcpy-web URL and ADB device ID, then open the embedded stream. The dashboard also offers allowlisted D-pad/Back/Home commands and direct APK installation through the gateway.
+Open `/redroid.html` on the deployed site to use the new Redroid browser dashboard. Enter the gateway URL and its private bearer token (the token is kept in page memory only), check Android status, configure the ws-scrcpy-web URL and ADB device ID, then open the embedded stream. The dashboard also offers allowlisted D-pad/Back/Home commands, direct APK installation, and safe launch of an installed app by Android package name through the gateway.
 
 The browser page is a client, not an Android runtime. It requires a separately running Redroid host and ws-scrcpy-web sidecar. For a remotely hosted page, configure the gateway's exact `ALLOWED_ORIGIN`, serve both endpoints over HTTPS, and configure ws-scrcpy-web's `frameAncestors` to allow the dashboard origin. The stream service has its own login. The bearer token is never written to localStorage or embedded in the static build.

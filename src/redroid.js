@@ -342,7 +342,10 @@ async function installApk() {
 function openStream(newTab = false) {
   try {
     const url = currentStreamUrl();
-    if (newTab) {\n      const opened = window.open(url, "_blank", "noopener,noreferrer");\n      if (!opened) throw new Error("The browser blocked the streaming tab. Allow pop-ups and try again.");\n    }
+    if (newTab) {
+      const opened = window.open(url, "_blank", "noopener,noreferrer");
+      if (!opened) throw new Error("The browser blocked the streaming tab. Allow pop-ups and try again.");
+    }
     else {
       const frame = document.createElement("iframe");
       frame.title = "Redroid Android screen";
@@ -351,7 +354,9 @@ function openStream(newTab = false) {
       frame.src = url;
       $("stream-screen").replaceChildren(frame);
     }
-    $("stream-state").textContent = newTab\n      ? "New player tab opened; login and playback are not verified."\n      : "Player frame requested; login and playback are not verified.";
+    $("stream-state").textContent = newTab
+      ? "New player tab opened; login and playback are not verified."
+      : "Player frame requested; login and playback are not verified.";
   } catch (error) { setStatus(error.message, "error"); }
 }
 

@@ -62,6 +62,17 @@ export function parseLauncherPackages(...outputs) {
   return [...packages].sort((a, b) => a.localeCompare(b)).slice(0, 300);
 }
 
+export function parseInstalledPackages(output) {
+  const packages = new Set();
+  for (const line of String(output || "").split(/\r?\n/)) {
+    const value = line.trim();
+    if (!value.startsWith("package:")) continue;
+    const packageName = value.slice("package:".length);
+    try { validatePackageName(packageName); packages.add(packageName); } catch { /* Ignore malformed package output. */ }
+  }
+  return [...packages].sort((a, b) => a.localeCompare(b)).slice(0, 300);
+}
+
 export function isAuthorized(header, expectedToken = TOKEN) {
   if (!expectedToken || typeof header !== "string" || !header.startsWith("Bearer ")) return false;
   const supplied = Buffer.from(header.slice(7));
@@ -200,12 +211,25 @@ async function handle(req, res, { token = TOKEN, allowedOrigin = ALLOWED_ORIGIN,
     try {
       await ensureDevice(runAdb);
       const categories = ["android.intent.category.LAUNCHER", "android.intent.category.LEANBACK_LAUNCHER"];
-      const results = await Promise.all(categories.map(category => runAdb([
-        "-s", SERIAL, "shell", "cmd", "package", "query-activities", "--brief",
-        "-a", "android.intent.action.MAIN", "-c", category
-      ], 30_000)));
-      const packages = parseLauncherPackages(...results.map(result => result.stdout));
-      return json(res, 200, { apps: packages.map(packageName => ({ packageName })), count: packages.length }, headers);
+      let packages;
+      let discovery = "launcher";
+      try {
+        const results = await Promise.all(categories.map(category => runAdb([
+          "-s", SERIAL, "shell", "cmd", "package", "query-activities", "--brief",
+          "-a", "android.intent.action.MAIN", "-c", category
+        ], 30_000)));
+        packages = parseLauncherPackages(...results.map(result => result.stdout));
+      } catch {
+        // Older Android releases may not implement cmd package query-activities.
+        const fallback = await runAdb(["-s", SERIAL, "shell", "pm", "list", "packages", "-3"], 30_000);
+        packages = parseInstalledPackages(fallback.stdout);
+        discovery = "legacy-packages";
+      }
+      return json(res, 200, {
+        apps: packages.map(packageName => ({ packageName })),
+        count: packages.length,
+        discovery
+      }, headers);
     } catch (error) {
       return json(res, 502, {
         error: "Could not list installed Android apps",

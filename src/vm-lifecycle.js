@@ -23,10 +23,12 @@ export function waitForEmulatorReady(instance, {
     };
     const onReady = () => finish();
 
-    instance.add_listener('emulator-ready', onReady);
+    // Start the timeout before subscribing because a test double or adapter
+    // may synchronously emit the event from add_listener().
     timeout = setTimer(() => {
       finish(new Error('Emulator initialization timed out.'));
     }, timeoutMs);
+    instance.add_listener('emulator-ready', onReady);
 
     // Close the race where readiness changes while the listener is attached.
     if (isReady()) finish();

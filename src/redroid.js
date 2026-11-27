@@ -28,7 +28,7 @@ root.innerHTML = `
       <button class="rt-button" id="launch-app" disabled>Launch app</button>
       <div class="rt-status" id="launch-status">Connect to Android and enter an installed app's package name.</div>
       <div class="rt-apps-head"><h2>Installed apps</h2><button class="rt-button" id="refresh-apps" disabled>Refresh list</button></div>
-      <div class="rt-status" id="apps-status">Connect to Android to discover installed user apps.</div>
+      <div class="rt-status" id="apps-status">Connect to Android to discover launchable apps.</div>
       <div class="rt-field rt-app-filter"><label for="app-filter">Find an installed app</label><input class="rt-input" id="app-filter" type="search" placeholder="Filter by package name…" autocomplete="off" disabled></div>
       <button class="rt-button rt-favorites-toggle" id="favorites-toggle" type="button" aria-pressed="false" disabled>Show favorites ☆</button>
       <div class="rt-app-list" id="installed-apps" aria-live="polite"></div>
@@ -36,13 +36,13 @@ root.innerHTML = `
     <section class="rt-panel">
       <section class="rt-tv-home" aria-label="Android TV home launcher">
         <div class="rt-home-heading"><div><p class="rt-eyebrow">ANDROID TV</p><h2>Home</h2></div><span id="home-app-count" class="rt-muted">No apps loaded</span></div>
-        <div class="rt-home-feature"><div><span class="rt-home-pill">YOUR ANDROID</span><h3>Apps, ready for the big screen.</h3><p>Launch apps installed on your connected Android device. App names are shown exactly as reported by Android package IDs.</p></div><div class="rt-home-mark" aria-hidden="true">▶</div></div>
+        <div class="rt-home-feature"><div><span class="rt-home-pill">YOUR ANDROID</span><h3>Apps, ready for the big screen.</h3><p>Apps with a standard or Android TV launcher activity appear here. Package IDs are shown until Android label and icon metadata is integrated.</p></div><div class="rt-home-mark" aria-hidden="true">▶</div></div>
         <h3 class="rt-home-section-title">Recently opened</h3>
         <div class="rt-home-grid" id="home-recent" aria-label="Recently opened apps"><p class="rt-home-empty">Apps you launch will appear here.</p></div>
         <h3 class="rt-home-section-title">Favorites</h3>
         <div class="rt-home-grid" id="home-favorites" aria-label="Favorite apps"><p class="rt-home-empty">Your favorite apps will appear here.</p></div>
         <h3 class="rt-home-section-title">Your apps</h3>
-        <div class="rt-home-grid" id="home-apps" aria-label="All installed apps"><p class="rt-home-empty">Connect to Android and refresh the installed apps list.</p></div>
+        <div class="rt-home-grid" id="home-apps" aria-label="All launchable apps"><p class="rt-home-empty">Connect to Android and refresh the launchable apps list.</p></div>
         <p class="rt-home-status" id="home-status" role="status">Connect to your Android runtime to load apps.</p>
       </section>
       <div class="rt-stream-head"><h2>Android TV display</h2><span class="rt-muted" id="stream-state">Stream not started</span></div>
@@ -193,7 +193,7 @@ function renderHomeApps() {
   if (!favoriteApps.length) {
     const empty = document.createElement("p");
     empty.className = "rt-home-empty";
-    empty.textContent = installedApps.length ? "Mark apps with ☆ in the installed-app list to pin them here." : "Your favorite apps will appear here.";
+    empty.textContent = installedApps.length ? "Mark apps with ☆ in the app list to pin them here." : "Your favorite apps will appear here.";
     favorites.append(empty);
   } else favoriteApps.forEach(app => favorites.append(makeTile(app.packageName)));
   if (!installedApps.length) {
@@ -219,7 +219,7 @@ function renderApps(apps = installedApps) {
   if (!filtered.length) {
     const empty = document.createElement("p");
     empty.className = "rt-note";
-    empty.textContent = "No installed apps match this filter.";
+    empty.textContent = "No launchable apps match this filter.";
     list.append(empty);
     return;
   }
@@ -272,7 +272,7 @@ function renderApps(apps = installedApps) {
 async function refreshApps() {
   if (!connected) return;
   $("refresh-apps").disabled = true;
-  setAppsStatus("Reading installed user apps from Android…");
+  setAppsStatus("Discovering standard and Android TV launchable apps…");
   try {
     const result = await api("/api/apps");
     installedApps = (result.apps || []).filter(app => typeof app.packageName === "string");
@@ -285,7 +285,7 @@ async function refreshApps() {
     saveRecentPackages();
     renderHomeApps();
     $("home-status").textContent = "Apps loaded from Android. Select an app tile to launch it.";
-    setAppsStatus((result.count || 0) + " installed user app(s) found.", "ok");
+    setAppsStatus((result.count || 0) + " launchable app(s) found.", "ok");
   } catch (error) {
     setAppsStatus(error.message, "error");
   } finally {

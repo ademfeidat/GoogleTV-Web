@@ -42,6 +42,10 @@ The Redroid ADB port is bound to host loopback and is also available only on the
 
 Deploy the static frontend and open `/redroid.html`. Enter the gateway base URL and token. Configure the exact frontend origin in `ALLOWED_ORIGIN` (scheme and host, without a path or trailing slash). The streaming URL should point to the ws-scrcpy-web service through HTTPS; the ADB device ID is normally `redroid:5555`. The browser token remains in memory and is not persisted by the frontend.
 
+## Google TV / Google services compatibility
+
+The selected Redroid image is an Android runtime, not a pre-certified Google TV appliance image. A TV launcher APK can provide a television-style home screen, but it does not add Google Mobile Services, Play Store licensing, Play Protect certification or Widevine capabilities. Redroid documents separate GMS integration paths such as Open GApps, MicroG or MindTheGapps; compatibility and certification must be validated independently for the chosen Android release. Do not assume that installing a launcher APK alone produces a fully certified Google TV environment. See the [Redroid GMS notes](https://github.com/remote-android/redroid-doc# gms-support).
+
 ## Optional ws-scrcpy-web streaming sidecar
 
 The `streaming` profile adds the ws-scrcpy-web browser streamer on `127.0.0.1:8000`:

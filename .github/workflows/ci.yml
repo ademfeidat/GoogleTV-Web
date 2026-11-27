@@ -20,6 +20,7 @@ jobs:
         run: |
           python3 -m py_compile scripts/redroid_doctor.py test/test_redroid_doctor.py
           python3 -m unittest discover -s test -p 'test_*.py'
+      - run: npm run build
       - name: Install Chromium for browser smoke test
         run: npx playwright install --with-deps chromium
       - name: Run browser smoke test

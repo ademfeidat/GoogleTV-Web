@@ -66,6 +66,20 @@ try {
   assert.equal(await redroidPage.locator('#install-apk').isDisabled(), true);
   assert.equal(await redroidPage.locator('[data-key="DPAD_UP"]').isDisabled(), true);
   assert.equal(await redroidPage.locator('#device-id').inputValue(), 'redroid:5555');
+  await redroidPage.route('http://127.0.0.1:8080/api/status', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ connected: true, bootCompleted: true, androidRelease: '14', model: 'Redroid test device' })
+  }));
+  await redroidPage.locator('#gateway-url').fill('http://127.0.0.1:8080');
+  await redroidPage.locator('#gateway-token').fill('a'.repeat(64));
+  await redroidPage.locator('#stream-url').fill('https://stream.example');
+  await redroidPage.locator('#connect').click();
+  await redroidPage.waitForFunction(() => document.querySelector('#device-state')?.textContent === 'ADB connected');
+  assert.equal(await redroidPage.locator('#android-release').innerText(), '14');
+  assert.equal(await redroidPage.locator('#open-stream').isEnabled(), true);
+  assert.equal(await redroidPage.locator('[data-key="DPAD_UP"]').isEnabled(), true);
+  assert.equal(await redroidPage.evaluate(() => localStorage.length), 0, 'Gateway token must not be persisted in localStorage');
   assert.deepEqual(redroidErrors, [], `Redroid dashboard runtime errors: ${redroidErrors.join('; ')}`);
   await redroidPage.close();
 

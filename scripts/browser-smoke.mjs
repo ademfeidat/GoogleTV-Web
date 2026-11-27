@@ -65,6 +65,7 @@ try {
   assert.equal(await redroidPage.locator('#open-stream').isDisabled(), true);
   assert.equal(await redroidPage.locator('#install-apk').isDisabled(), true);
   assert.equal(await redroidPage.locator('#launch-app').isDisabled(), true);
+  assert.equal(await redroidPage.locator('#app-filter').isDisabled(), true);
   assert.equal(await redroidPage.locator('[data-key="DPAD_UP"]').isDisabled(), true);
   assert.equal(await redroidPage.locator('#device-id').inputValue(), 'redroid:5555');
   await redroidPage.route(`${origin}/api/status`, route => route.fulfill({
@@ -89,6 +90,14 @@ try {
   await redroidPage.locator('#refresh-apps').click();
   await redroidPage.waitForFunction(() => document.querySelector('#apps-status')?.textContent.includes('2 installed user app'));
   assert.equal(await redroidPage.locator('#installed-apps .rt-app-item').count(), 2);
+  assert.equal(await redroidPage.locator('#app-filter').isEnabled(), true);
+  assert.equal(await redroidPage.locator('#installed-apps .rt-app-group').count(), 2, 'Apps should be grouped alphabetically');
+  await redroidPage.locator('#app-filter').fill('sample');
+  assert.equal(await redroidPage.locator('#installed-apps .rt-app-item').count(), 1, 'Search should filter the app library');
+  await redroidPage.locator('#app-filter').fill('not-installed');
+  assert.equal(await redroidPage.locator('#installed-apps .rt-app-item').count(), 0);
+  assert.match(await redroidPage.locator('#installed-apps').innerText(), /No installed apps match this filter/);
+  await redroidPage.locator('#app-filter').fill('');
   await redroidPage.locator('#installed-apps .rt-app-item').filter({ hasText: 'com.example.tv' }).click();
   assert.equal(await redroidPage.locator('#package-name').inputValue(), 'com.example.tv');
   await redroidPage.locator('#package-name').fill('com.example.tv');
@@ -105,6 +114,9 @@ try {
   await redroidPage.locator('#launch-app').click();
   await redroidPage.waitForFunction(() => document.querySelector('#launch-status')?.textContent.includes('Launch command sent'));
   assert.deepEqual(launchPayload, { packageName: 'com.example.tv' }, 'Launch control must send only the selected package name');
+  await redroidPage.locator('#disconnect').click();
+  assert.equal(await redroidPage.locator('#app-filter').isDisabled(), true, 'Disconnect must disable and clear app search');
+  assert.equal(await redroidPage.locator('#installed-apps .rt-app-item').count(), 0, 'Disconnect must clear the installed-app list');
   assert.equal(await redroidPage.evaluate(() => localStorage.length), 0, 'Gateway token must not be persisted in localStorage');
   assert.deepEqual(redroidErrors, [], `Redroid dashboard runtime errors: ${redroidErrors.join('; ')}`);
   await redroidPage.close();

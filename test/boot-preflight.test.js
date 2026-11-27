@@ -41,3 +41,9 @@ test('guest RAM presets are selectable and snapshot compatibility includes the s
   assert.match(source, /memorySize:\s*selectedMemorySize\(\)/);
   assert.match(source, /\$\('guest-ram'\)\.disabled = !!vm \|\| starting/);
 });
+
+test('Start control requires the ISO and both firmware files', () => {
+  assert.match(source, /\$\('start'\)\.disabled = !iso \|\| !\$\('bios'\)\.files\[0\] \|\| !\$\('vga'\)\.files\[0\]/);
+  assert.match(source, /\$\('bios'\)\.addEventListener\('change', setButtons\)/);
+  assert.match(source, /\$\('vga'\)\.addEventListener\('change', setButtons\)/);
+});

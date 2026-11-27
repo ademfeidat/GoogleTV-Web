@@ -14,6 +14,7 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npm run check
+      - run: node --check server/gateway/src/server.js
       - run: npm test
       - run: npm run build
       - name: Install Chromium for browser smoke test

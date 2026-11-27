@@ -185,7 +185,7 @@ async function handle(req, res, { token = TOKEN, allowedOrigin = ALLOWED_ORIGIN,
     try {
       await ensureDevice(runAdb);
       const { stdout } = await runAdb(["-s", SERIAL, "shell", "pm", "list", "packages", "-3"], 30_000);
-      const packages = [...new Set(stdout.split(/\\r?\\n/)
+      const packages = [...new Set(stdout.split(/\r?\n/)
         .map(line => line.trim())
         .filter(line => line.startsWith("package:"))
         .map(line => line.slice("package:".length))

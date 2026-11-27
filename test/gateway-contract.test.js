@@ -286,7 +286,7 @@ test("gateway lists validated third-party Android packages from the connected de
     calls.push(args);
     if (args.includes("get-state")) return { stdout: "device", stderr: "" };
     if (args.includes("pm")) return {
-      stdout: "package:com.example.tv\\npackage:org.sample.player\\npackage:com.example.tv\\npackage:bad;command\\npackage:com.valid_app.client\\n",
+      stdout: "package:com.example.tv\npackage:org.sample.player\npackage:com.example.tv\npackage:bad;command\npackage:com.valid_app.client\n",
       stderr: ""
     };
     return { stdout: "", stderr: "" };

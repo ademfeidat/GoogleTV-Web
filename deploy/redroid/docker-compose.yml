@@ -1,0 +1,28 @@
+services:
+  redroid:
+    image: ${REDROID_IMAGE:-redroid/redroid:14.0.0-latest}
+    container_name: googletv-redroid
+    privileged: true
+    restart: unless-stopped
+    shm_size: 1gb
+    command:
+      - androidboot.redroid_width=${REDROID_WIDTH:-1920}
+      - androidboot.redroid_height=${REDROID_HEIGHT:-1080}
+      - androidboot.redroid_dpi=${REDROID_DPI:-240}
+    volumes:
+      - redroid-data:/data
+    expose:
+      - "5555"
+    # Optional local-only ADB maintenance access. Never change this to 0.0.0.0.
+    ports:
+      - "127.0.0.1:5555:5555"
+    networks:
+      - android-private
+
+volumes:
+  redroid-data:
+
+networks:
+  android-private:
+    name: googletv-android-private
+    driver: bridge

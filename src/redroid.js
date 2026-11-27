@@ -34,6 +34,15 @@ root.innerHTML = `
       <div class="rt-app-list" id="installed-apps" aria-live="polite"></div>
     </aside>
     <section class="rt-panel">
+      <section class="rt-tv-home" aria-label="Android TV home launcher">
+        <div class="rt-home-heading"><div><p class="rt-eyebrow">ANDROID TV</p><h2>Home</h2></div><span id="home-app-count" class="rt-muted">No apps loaded</span></div>
+        <div class="rt-home-feature"><div><span class="rt-home-pill">YOUR ANDROID</span><h3>Apps, ready for the big screen.</h3><p>Launch apps installed on your connected Android device. App names are shown exactly as reported by Android package IDs.</p></div><div class="rt-home-mark" aria-hidden="true">▶</div></div>
+        <h3 class="rt-home-section-title">Favorites</h3>
+        <div class="rt-home-grid" id="home-favorites" aria-label="Favorite apps"><p class="rt-home-empty">Your favorite apps will appear here.</p></div>
+        <h3 class="rt-home-section-title">Your apps</h3>
+        <div class="rt-home-grid" id="home-apps" aria-label="All installed apps"><p class="rt-home-empty">Connect to Android and refresh the installed apps list.</p></div>
+        <p class="rt-home-status" id="home-status" role="status">Connect to your Android runtime to load apps.</p>
+      </section>
       <div class="rt-stream-head"><h2>Android TV display</h2><span class="rt-muted" id="stream-state">Stream not started</span></div>
       <div class="rt-screen" id="stream-screen"><div class="rt-empty">Connect to your Redroid server, configure the streaming URL, then open the Android screen here.</div></div>
       <h2 style="margin-top:18px">TV remote</h2>
@@ -131,6 +140,44 @@ function saveFavorites() {
   try { localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favoritePackages].sort())); }
   catch { setAppsStatus("Favorites could not be saved in this browser.", "warn"); }
 }
+function renderHomeApps() {
+  const all = $("home-apps");
+  const favorites = $("home-favorites");
+  all.replaceChildren();
+  favorites.replaceChildren();
+  $("home-app-count").textContent = installedApps.length ? installedApps.length + " installed" : "No apps loaded";
+  const makeTile = packageName => {
+    const tile = document.createElement("button");
+    tile.type = "button";
+    tile.className = "rt-home-launch";
+    tile.dataset.packageName = packageName;
+    tile.setAttribute("aria-label", "Launch " + packageName);
+    const icon = document.createElement("span");
+    icon.className = "rt-home-app-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = packageName.replace(/^.*[.]/, "").slice(0, 2).toUpperCase() || "AP";
+    const label = document.createElement("span");
+    label.className = "rt-home-app-name";
+    label.textContent = packageName;
+    tile.append(icon, label);
+    tile.addEventListener("click", () => launchPackage(packageName));
+    return tile;
+  };
+  const favoriteApps = installedApps.filter(app => favoritePackages.has(app.packageName));
+  if (!favoriteApps.length) {
+    const empty = document.createElement("p");
+    empty.className = "rt-home-empty";
+    empty.textContent = installedApps.length ? "Mark apps with ☆ in the installed-app list to pin them here." : "Your favorite apps will appear here.";
+    favorites.append(empty);
+  } else favoriteApps.forEach(app => favorites.append(makeTile(app.packageName)));
+  if (!installedApps.length) {
+    const empty = document.createElement("p");
+    empty.className = "rt-home-empty";
+    empty.textContent = "Connect to Android and refresh the installed apps list.";
+    all.append(empty);
+  } else installedApps.forEach(app => all.append(makeTile(app.packageName)));
+}
+
 function renderApps(apps = installedApps) {
   const list = $("installed-apps");
   const query = $("app-filter").value.trim().toLowerCase();
@@ -188,6 +235,7 @@ function renderApps(apps = installedApps) {
         saveFavorites();
         $("favorites-toggle").textContent = showFavoritesOnly ? "Show all apps" : "Show favorites ☆";
         renderApps();
+        renderHomeApps();
       });
       row.append(button, favorite);
       section.append(row);
@@ -205,6 +253,8 @@ async function refreshApps() {
     $("app-filter").disabled = false;
     $("favorites-toggle").disabled = false;
     renderApps();
+    renderHomeApps();
+    $("home-status").textContent = "Apps loaded from Android. Select an app tile to launch it.";
     setAppsStatus((result.count || 0) + " installed user app(s) found.", "ok");
   } catch (error) {
     setAppsStatus(error.message, "error");
@@ -212,11 +262,12 @@ async function refreshApps() {
     $("refresh-apps").disabled = !connected;
   }
 }
-async function launchApp() {
-  const packageName = $("package-name").value.trim();
-  if (!packageName) { $("launch-status").textContent = "Enter the Android package name."; return; }
+async function launchPackage(packageName) {
+  if (!connected || !packageName) return;
+  $("package-name").value = packageName;
   $("launch-app").disabled = true;
   $("launch-status").textContent = "Starting " + packageName + "…";
+  $("home-status").textContent = "Launching " + packageName + "…";
   try {
     const result = await api("/api/launch", {
       method: "POST",
@@ -225,12 +276,19 @@ async function launchApp() {
     });
     $("launch-status").textContent = "Launch command sent to " + result.packageName + ". " + (result.output || "");
     $("launch-status").dataset.kind = "ok";
+    $("home-status").textContent = "Launch request sent to Android for " + packageName + ".";
   } catch (error) {
     $("launch-status").textContent = error.message;
     $("launch-status").dataset.kind = "error";
+    $("home-status").textContent = "Could not launch " + packageName + ": " + error.message;
   } finally {
     $("launch-app").disabled = !connected || !$("package-name").value.trim();
   }
+}
+async function launchApp() {
+  const packageName = $("package-name").value.trim();
+  if (!packageName) { $("launch-status").textContent = "Enter the Android package name."; return; }
+  await launchPackage(packageName);
 }
 async function installApk() {
   const file = $("apk-file").files[0];
@@ -266,6 +324,8 @@ $("connect").addEventListener("click", checkAndroid);
 $("disconnect").addEventListener("click", () => {
   gatewayBase = ""; accessToken = ""; streamUrl = "";
   installedApps = [];
+  renderHomeApps();
+  $("home-status").textContent = "Credentials cleared. Connect again to load Android apps.";
   showFavoritesOnly = false;
   $("favorites-toggle").textContent = "Show favorites ☆";
   $("favorites-toggle").setAttribute("aria-pressed", "false");
@@ -301,8 +361,20 @@ $("favorites-toggle").addEventListener("click", () => {
   $("favorites-toggle").textContent = showFavoritesOnly ? "Show all apps" : "Show favorites ☆";
   $("favorites-toggle").setAttribute("aria-pressed", String(showFavoritesOnly));
   renderApps();
+  renderHomeApps();
 });
 $("package-name").addEventListener("input", () => {
   $("launch-app").disabled = !connected || !$("package-name").value.trim();
 });
 document.querySelectorAll("[data-key]").forEach(button => button.addEventListener("click", () => sendRemote(button.dataset.key)));
+root.addEventListener("keydown", event => {
+  const current = event.target.closest?.(".rt-home-launch");
+  if (!current || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+  const grid = current.closest(".rt-home-grid");
+  const tiles = [...grid.querySelectorAll(".rt-home-launch")];
+  const index = tiles.indexOf(current);
+  const columns = Math.max(1, getComputedStyle(grid).gridTemplateColumns.split(" ").length);
+  const delta = event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : event.key === "ArrowUp" ? -columns : columns;
+  const next = tiles[index + delta];
+  if (next) { event.preventDefault(); next.focus(); }
+});

@@ -16,7 +16,13 @@ Run the read-only host check from the repository root:
 bash scripts/redroid-host-preflight.sh
 ```
 
-The script does not load kernel modules or change host configuration.
+After starting the container, verify actual Android boot completion from the host:
+
+```bash
+REDROID_ADB_TARGET=127.0.0.1:5555 bash scripts/redroid-runtime-check.sh
+```
+
+The first script checks host prerequisites; the second checks a live ADB connection and `sys.boot_completed=1`. Neither script changes host configuration.
 
 ## Configure and start
 

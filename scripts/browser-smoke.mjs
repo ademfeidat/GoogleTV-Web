@@ -123,6 +123,9 @@ try {
   await redroidPage.locator('#home-apps .rt-home-launch').filter({ hasText: 'com.example.tv' }).click();
   await redroidPage.waitForFunction(() => document.querySelector('#home-status')?.textContent.includes('Launch request sent'));
   assert.deepEqual(homeLaunchPayload, { packageName: 'com.example.tv' }, 'TV home tile must call the validated package launch API');
+  assert.equal(await redroidPage.locator('#home-recent .rt-home-launch').count(), 1, 'Successfully launched apps should appear in Recently opened');
+  assert.equal(await redroidPage.locator('#home-recent .rt-home-launch').getAttribute('data-package-name'), 'com.example.tv');
+  assert.deepEqual(await redroidPage.evaluate(() => JSON.parse(localStorage.getItem('googletv.redroid.recent-packages'))), ['com.example.tv'], 'Recent history should persist package IDs only');
   let launchPayload;
   await redroidPage.route(`${origin}/api/launch`, async route => {
     launchPayload = route.request().postDataJSON();

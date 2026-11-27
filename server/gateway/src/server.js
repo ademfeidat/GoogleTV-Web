@@ -2,14 +2,13 @@ import { createServer } from "node:http";
 import { createWriteStream } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
-import { resolve } from "node:path";
 
 const execFileAsync = promisify(execFile);
 const PORT = Number(process.env.PORT || 8080);
@@ -23,24 +22,13 @@ const MAX_JSON_BYTES = 4096;
 const rateBuckets = new Map();
 
 const KEYCODES = Object.freeze({
-  DPAD_UP: "19",
-  DPAD_DOWN: "20",
-  DPAD_LEFT: "21",
-  DPAD_RIGHT: "22",
-  DPAD_CENTER: "23",
-  BACK: "4",
-  HOME: "3",
-  MENU: "82",
-  PLAY_PAUSE: "85",
-  VOLUME_UP: "24",
-  VOLUME_DOWN: "25",
-  MUTE: "164"
+  DPAD_UP: "19", DPAD_DOWN: "20", DPAD_LEFT: "21", DPAD_RIGHT: "22",
+  DPAD_CENTER: "23", BACK: "4", HOME: "3", MENU: "82",
+  PLAY_PAUSE: "85", VOLUME_UP: "24", VOLUME_DOWN: "25", MUTE: "164"
 });
 
 export function mapInputAction(action) {
-  if (typeof action !== "string" || !Object.hasOwn(KEYCODES, action)) {
-    throw new Error("Unsupported input action");
-  }
+  if (typeof action !== "string" || !Object.hasOwn(KEYCODES, action)) throw new Error("Unsupported input action");
   return KEYCODES[action];
 }
 
@@ -90,28 +78,18 @@ function rateLimit(req, res) {
   const key = req.socket.remoteAddress || "unknown";
   const now = Date.now();
   const bucket = rateBuckets.get(key) || { start: now, count: 0 };
-  if (now - bucket.start > 60_000) {
-    bucket.start = now;
-    bucket.count = 0;
-  }
+  if (now - bucket.start > 60_000) { bucket.start = now; bucket.count = 0; }
   bucket.count += 1;
   rateBuckets.set(key, bucket);
   if (rateBuckets.size > 2048) {
     for (const [ip, item] of rateBuckets) if (now - item.start > 60_000) rateBuckets.delete(ip);
   }
-  if (bucket.count > 120) {
-    json(res, 429, { error: "Rate limit exceeded" });
-    return false;
-  }
+  if (bucket.count > 120) { json(res, 429, { error: "Rate limit exceeded" }); return false; }
   return true;
 }
 
 async function adb(args, timeout = 20_000) {
-  return execFileAsync("adb", args, {
-    timeout,
-    maxBuffer: 1024 * 1024,
-    windowsHide: true
-  });
+  return execFileAsync("adb", args, { timeout, maxBuffer: 1024 * 1024, windowsHide: true });
 }
 
 async function ensureDevice() {
@@ -126,55 +104,42 @@ async function readJson(req) {
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > MAX_JSON_BYTES) {
-      const error = new Error("JSON request too large");
-      error.statusCode = 413;
-      throw error;
-    }
+    if (size > MAX_JSON_BYTES) { const error = new Error("JSON request too large"); error.statusCode = 413; throw error; }
     chunks.push(chunk);
   }
-  try {
-    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
-  } catch {
-    const error = new Error("Invalid JSON body");
-    error.statusCode = 400;
-    throw error;
-  }
+  try { return JSON.parse(Buffer.concat(chunks).toString("utf8")); }
+  catch { const error = new Error("Invalid JSON body"); error.statusCode = 400; throw error; }
 }
 
-async function installApk(req, res) {
+async function installApk(req, res, headers) {
   const contentType = String(req.headers["content-type"] || "").split(";")[0].trim().toLowerCase();
   if (!["application/vnd.android.package-archive", "application/octet-stream"].includes(contentType)) {
-    return json(res, 415, { error: "Send the APK as a raw binary request body" });
+    return json(res, 415, { error: "Send the APK as a raw binary request body" }, headers);
   }
   const declaredLength = Number(req.headers["content-length"] || 0);
-  if (declaredLength > MAX_APK_BYTES) return json(res, 413, { error: "APK exceeds the 512 MiB limit" });
+  if (declaredLength > MAX_APK_BYTES) return json(res, 413, { error: "APK exceeds the 512 MiB limit" }, headers);
 
   const dir = await mkdtemp(join(tmpdir(), "googletv-apk-"));
   const apkPath = join(dir, `${randomUUID()}.apk`);
   let total = 0;
   try {
-    await pipeline(
-      req,
-      new Transform({
-        transform(chunk, _encoding, callback) {
-          total += chunk.length;
-          if (total > MAX_APK_BYTES) {
-            const error = new Error("APK exceeds the 512 MiB limit");
-            error.statusCode = 413;
-            callback(error);
-          } else callback(null, chunk);
-        }
-      }),
-      createWriteStream(apkPath, { flags: "wx", mode: 0o600 })
-    );
-    if (total === 0) return json(res, 400, { error: "APK body is empty" });
+    await pipeline(req, new Transform({
+      transform(chunk, _encoding, callback) {
+        total += chunk.length;
+        if (total > MAX_APK_BYTES) { const error = new Error("APK exceeds the 512 MiB limit"); error.statusCode = 413; callback(error); }
+        else callback(null, chunk);
+      }
+    }), createWriteStream(apkPath, { flags: "wx", mode: 0o600 }));
+    if (total === 0) return json(res, 400, { error: "APK body is empty" }, headers);
     await ensureDevice();
     const { stdout, stderr } = await adb(["-s", SERIAL, "install", "-r", apkPath], 180_000);
-    return json(res, 200, { ok: true, output: (stdout + stderr).trim() });
+    return json(res, 200, { ok: true, output: (stdout + stderr).trim() }, headers);
   } catch (error) {
     const status = error.statusCode || 502;
-    return json(res, status, { error: status === 413 ? "APK exceeds the 512 MiB limit" : "APK installation failed", detail: status === 502 ? String(error.stderr || error.message).slice(0, 1200) : undefined });
+    return json(res, status, {
+      error: status === 413 ? "APK exceeds the 512 MiB limit" : "APK installation failed",
+      detail: status === 502 ? String(error.stderr || error.message).slice(0, 1200) : undefined
+    }, headers);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -183,10 +148,7 @@ async function installApk(req, res) {
 async function handle(req, res) {
   const headers = corsHeaders(req);
   if (!originAllowed(req)) return json(res, 403, { error: "Origin not allowed" });
-  if (req.method === "OPTIONS") {
-    res.writeHead(204, { ...headers, "access-control-max-age": "600" });
-    return res.end();
-  }
+  if (req.method === "OPTIONS") { res.writeHead(204, { ...headers, "access-control-max-age": "600" }); return res.end(); }
   if (req.method === "GET" && req.url === "/healthz") return json(res, 200, { ok: true });
   if (!rateLimit(req, res)) return;
   if (!isAuthorized(req.headers.authorization)) return json(res, 401, { error: "Unauthorized" }, headers);
@@ -200,13 +162,14 @@ async function handle(req, res) {
         adb(["-s", SERIAL, "shell", "getprop", "ro.product.model"])
       ]);
       return json(res, 200, {
-        connected: true,
-        bootCompleted: boot.stdout.trim() === "1",
-        androidRelease: release.stdout.trim(),
-        model: model.stdout.trim()
+        connected: true, bootCompleted: boot.stdout.trim() === "1",
+        androidRelease: release.stdout.trim(), model: model.stdout.trim()
       }, headers);
     } catch (error) {
-      return json(res, 503, { connected: false, error: "Android runtime is not ready", detail: String(error.stderr || error.message).slice(0, 500) }, headers);
+      return json(res, 503, {
+        connected: false, error: "Android runtime is not ready",
+        detail: String(error.stderr || error.message).slice(0, 500)
+      }, headers);
     }
   }
 
@@ -218,8 +181,7 @@ async function handle(req, res) {
         const { x, y } = validateTapCoordinates(body.x, body.y);
         await adb(["-s", SERIAL, "shell", "input", "tap", String(x), String(y)]);
       } else {
-        const keycode = mapInputAction(body.action);
-        await adb(["-s", SERIAL, "shell", "input", "keyevent", keycode]);
+        await adb(["-s", SERIAL, "shell", "input", "keyevent", mapInputAction(body.action)]);
       }
       return json(res, 200, { ok: true }, headers);
     } catch (error) {
@@ -227,10 +189,7 @@ async function handle(req, res) {
     }
   }
 
-  if (req.method === "POST" && req.url === "/api/apk") {
-    return installApk(req, res);
-  }
-
+  if (req.method === "POST" && req.url === "/api/apk") return installApk(req, res, headers);
   return json(res, 404, { error: "Not found" }, headers);
 }
 
@@ -248,9 +207,7 @@ if (process.env.NODE_ENV !== "test" && process.argv[1] && fileURLToPath(import.m
     throw new Error("Set GATEWAY_TOKEN to a unique random secret of at least 32 characters");
   }
   const server = createGatewayServer();
-  server.listen(PORT, "0.0.0.0", () => {
-    process.stdout.write(`GoogleTV Redroid gateway listening on ${PORT}; ADB target ${SERIAL}\n`);
-  });
+  server.listen(PORT, "0.0.0.0", () => process.stdout.write(`GoogleTV Redroid gateway listening on ${PORT}; ADB target ${SERIAL}\n`));
   const shutdown = () => server.close(() => process.exit(0));
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);

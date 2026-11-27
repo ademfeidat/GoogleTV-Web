@@ -79,10 +79,23 @@ curl -X POST -H "Authorization: Bearer $GATEWAY_TOKEN" -H "Content-Type: applica
 
 The gateway currently uses a single shared bearer token for a single-user proof of concept. Put a TLS reverse proxy and real user authentication in front of it before remote access. The ws-scrcpy-web sidecar has its own login system; enable it before remote access.
 
-## Persistence
+## Persistence: backup and restore
 
-Android's data partition is stored in the named Docker volume `redroid-data`. The stream sidecar state is stored separately in `ws-scrcpy-data`. Removing either volume destroys the corresponding data. Back up Android `/data` only after stopping or quiescing the Android container so the archive is consistent.
+Android's `/data` partition is stored in the named Docker volume `redroid-data`. The stream sidecar state is stored separately in `ws-scrcpy-data`. Removing either volume destroys the corresponding data.
+
+The repository includes a helper that discovers the actual Compose volume mounted at `/data`, rather than assuming the generated volume name. It uses a short-lived Alpine helper container with no network access:
+
+```bash
+# Stop Redroid first; backup is intentionally refused while it is running.
+docker compose -f deploy/redroid/docker-compose.yml stop redroid
+bash scripts/redroid-data.sh backup ./backups/redroid
+
+# Restore is destructive: it replaces every file in /data.
+bash scripts/redroid-data.sh restore ./backups/redroid/redroid-data-YYYYMMDDTHHMMSSZ.tar.gz --yes
+```
+
+The backup command requires the Redroid container to be stopped so Android's database and app files are quiescent. The restore command validates the gzip tar archive and rejects absolute paths and parent-directory traversal, stops Redroid if it was running, replaces the volume contents, and restarts Redroid only if it was running before restore. Use only archives you trust; path checks do not make an untrusted archive safe. Copy backups off the host and protect them because they contain app data, accounts and potentially sensitive session information. This helper backs up Android `/data` only; it does not back up the separate ws-scrcpy volume, Docker images, host configuration or secrets.
 
 ## Current limitation
 
-The gateway provides authenticated status, allowlisted input and APK installation endpoints. The `/redroid.html` dashboard connects to that gateway and embeds the ws-scrcpy-web `/embed.html?device=` route. The optional streaming sidecar is wired into Compose, but no real Redroid instance has been booted or streamed in this project environment. A successful CI run validates code and Compose syntax; it does not prove Android boot or live streaming.
+The gateway provides authenticated status, allowlisted input and APK installation endpoints. The `/redroid.html` dashboard connects to that gateway and embeds the ws-scrcpy-web `/embed.html?device=` route. The optional streaming sidecar is wired into Compose, but no real Redroid instance has been booted or streamed in this project environment. CI validates code and Compose syntax; it does not prove Android boot, backup integrity against a live guest, or live streaming.

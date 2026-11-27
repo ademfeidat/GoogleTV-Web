@@ -198,18 +198,23 @@ async function handle(req, res, { token = TOKEN, allowedOrigin = ALLOWED_ORIGIN,
   }
 
   if (req.method === "POST" && req.url === "/api/launch") {
+    let packageName;
     try {
       const body = await readJson(req);
-      const packageName = validatePackageName(body.packageName);
+      packageName = validatePackageName(body.packageName);
+    } catch (error) {
+      return json(res, error.statusCode || 400, { error: error.message }, headers);
+    }
+    try {
       await ensureDevice(runAdb);
       const { stdout, stderr } = await runAdb([
         "-s", SERIAL, "shell", "monkey", "-p", packageName, "1"
       ], 30_000);
       return json(res, 200, { ok: true, packageName, output: (stdout + stderr).trim() }, headers);
     } catch (error) {
-      return json(res, error.statusCode || 400, {
-        error: error.statusCode === 413 ? error.message : "Application launch failed",
-        detail: error.statusCode ? undefined : String(error.stderr || error.message).slice(0, 800)
+      return json(res, 502, {
+        error: "Application launch failed",
+        detail: String(error.stderr || error.message).slice(0, 800)
       }, headers);
     }
   }

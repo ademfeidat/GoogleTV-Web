@@ -39,6 +39,14 @@ export function validateTapCoordinates(x, y) {
   return { x, y };
 }
 
+export function validatePackageName(value) {
+  if (typeof value !== "string" || value.length > 255 ||
+      !/^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$/.test(value)) {
+    throw new Error("Enter a valid Android package name, such as com.example.app");
+  }
+  return value;
+}
+
 export function isAuthorized(header, expectedToken = TOKEN) {
   if (!expectedToken || typeof header !== "string" || !header.startsWith("Bearer ")) return false;
   const supplied = Buffer.from(header.slice(7));
@@ -186,6 +194,23 @@ async function handle(req, res, { token = TOKEN, allowedOrigin = ALLOWED_ORIGIN,
       return json(res, 200, { ok: true }, headers);
     } catch (error) {
       return json(res, error.statusCode || 400, { error: error.message }, headers);
+    }
+  }
+
+  if (req.method === "POST" && req.url === "/api/launch") {
+    try {
+      const body = await readJson(req);
+      const packageName = validatePackageName(body.packageName);
+      await ensureDevice(runAdb);
+      const { stdout, stderr } = await runAdb([
+        "-s", SERIAL, "shell", "monkey", "-p", packageName, "1"
+      ], 30_000);
+      return json(res, 200, { ok: true, packageName, output: (stdout + stderr).trim() }, headers);
+    } catch (error) {
+      return json(res, error.statusCode || 400, {
+        error: error.statusCode === 413 ? error.message : "Application launch failed",
+        detail: error.statusCode ? undefined : String(error.stderr || error.message).slice(0, 800)
+      }, headers);
     }
   }
 

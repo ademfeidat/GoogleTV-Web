@@ -128,7 +128,9 @@ try {
   assert.deepEqual(await redroidPage.evaluate(() => JSON.parse(localStorage.getItem('googletv.redroid.recent-packages'))), ['com.example.tv'], 'Recent history should persist package IDs only');
   await redroidPage.locator('#home-recent .rt-home-launch').focus();
   await redroidPage.keyboard.press('ArrowDown');
-  assert.equal(await redroidPage.evaluate(() => document.activeElement?.dataset.packageName), 'com.example.tv', 'D-pad navigation should remain stable when no tile exists below');
+  assert.equal(await redroidPage.evaluate(() => document.activeElement?.closest('#home-favorites') !== null), true, 'D-pad Down should move focus from Recently opened to Favorites across shelves');
+  await redroidPage.keyboard.press('ArrowUp');
+  assert.equal(await redroidPage.evaluate(() => document.activeElement?.closest('#home-recent') !== null), true, 'D-pad Up should return focus to Recently opened');
   let launchPayload;
   await redroidPage.route(`${origin}/api/launch`, async route => {
     launchPayload = route.request().postDataJSON();

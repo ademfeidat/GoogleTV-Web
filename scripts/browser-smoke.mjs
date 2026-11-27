@@ -54,7 +54,22 @@ try {
   assert.equal(await page.locator('#guest-ram').isEnabled(), true);
   assert.deepEqual(pageErrors, [], `Browser runtime errors: ${pageErrors.join('; ')}`);
 
-  console.log('Browser smoke passed: page bootstrapped, controls initialized, RAM selection updated diagnostics, and required-file selection enabled Start.');
+  const redroidPage = await browser.newPage();
+  const redroidErrors = [];
+  redroidPage.on('pageerror', error => redroidErrors.push(error.message));
+  const redroidResponse = await redroidPage.goto(origin + '/redroid.html', { waitUntil: 'domcontentloaded', timeout: 15000 });
+  assert.equal(redroidResponse.status(), 200);
+  await redroidPage.waitForSelector('#connect', { timeout: 10000 });
+  assert.equal(await redroidPage.title(), 'GoogleTV Web — Redroid Runtime');
+  assert.equal(await redroidPage.locator('h1').innerText(), 'GoogleTV Web');
+  assert.equal(await redroidPage.locator('#open-stream').isDisabled(), true);
+  assert.equal(await redroidPage.locator('#install-apk').isDisabled(), true);
+  assert.equal(await redroidPage.locator('[data-key="DPAD_UP"]').isDisabled(), true);
+  assert.equal(await redroidPage.locator('#device-id').inputValue(), 'redroid:5555');
+  assert.deepEqual(redroidErrors, [], `Redroid dashboard runtime errors: ${redroidErrors.join('; ')}`);
+  await redroidPage.close();
+
+  console.log('Browser smoke passed: legacy page and Redroid dashboard both bootstrapped; initial controls are safely disabled.');
 } finally {
   if (browser) await browser.close();
   server.kill('SIGTERM');

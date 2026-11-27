@@ -67,7 +67,7 @@ function corsHeaders(req, allowedOrigin = ALLOWED_ORIGIN) {
   const origin = req.headers.origin;
   if (!origin || !allowedOrigin || origin !== allowedOrigin) return {};
   return {
-    "access-control-allow-origin": ALLOWED_ORIGIN,
+    "access-control-allow-origin": allowedOrigin,
     "access-control-allow-methods": "GET, POST, OPTIONS",
     "access-control-allow-headers": "Authorization, Content-Type",
     "vary": "Origin"

@@ -6,10 +6,12 @@ This directory contains the server-side Android runtime, private gateway and opt
 
 - Linux host on `x86_64` or `aarch64` for Redroid itself.
 - Docker Engine and Docker Compose v2.
-- Binder kernel support and the binder devices required by the selected Redroid image.
+- Binder kernel support and the binder devices required by the selected Redroid image. A privileged container cannot supply a missing host binder driver.
 - Optional GPU render node at `/dev/dri/renderD*` plus compatible host drivers for GPU acceleration.
 - Enough RAM, CPU and persistent disk for Android and video streaming. A small free-tier VPS may not meet these requirements.
 - The current ws-scrcpy-web Docker image is Linux amd64 only, so the complete streaming profile currently targets x86_64 hosts.
+
+Redroid runs Android userspace against the Linux host kernel. The official setup requires binder support and recommends keeping the ADB port private; Android 17 no longer needs ashmem, while older image/kernel combinations may differ. See the [official Redroid documentation](https://github.com/remote-android/redroid-doc).
 
 Run the read-only host check from the repository root:
 
@@ -17,13 +19,13 @@ Run the read-only host check from the repository root:
 bash scripts/redroid-host-preflight.sh
 ```
 
-After starting Redroid, verify actual Android boot completion from the host:
+After starting Redroid, wait for Android to become ready and verify boot completion from the host:
 
 ```bash
-REDROID_ADB_TARGET=127.0.0.1:5555 bash scripts/redroid-runtime-check.sh
+REDROID_BOOT_TIMEOUT_SECONDS=180 REDROID_ADB_TARGET=127.0.0.1:5555 bash scripts/redroid-runtime-check.sh
 ```
 
-The first script checks host prerequisites; the second checks a live ADB connection and `sys.boot_completed=1`. Neither changes host configuration.
+The first script checks host prerequisites; the second retries ADB discovery and waits for `sys.boot_completed=1`. Neither changes host configuration. A successful preflight does not prove Android can boot.
 
 ## Configure and start Redroid
 
@@ -36,7 +38,11 @@ The first script checks host prerequisites; the second checks a live ADB connect
 
 The Redroid ADB port is bound to host loopback and is also available only on the private Docker network. The gateway HTTP API is bound to host loopback at `127.0.0.1:8080`. Do not change either host binding to `0.0.0.0` and do not publish ADB to the public internet.
 
-## Open the Redroid browser dashboard\n\nDeploy the static frontend and open `/redroid.html`. Enter the gateway base URL and token. Configure the exact frontend origin in `ALLOWED_ORIGIN` (scheme and host, without a path or trailing slash). The streaming URL should point to the ws-scrcpy-web service through HTTPS; the ADB device ID is normally `redroid:5555`. The browser token remains in memory and is not persisted by the frontend.\n\n## Optional ws-scrcpy-web streaming sidecar
+## Open the Redroid browser dashboard
+
+Deploy the static frontend and open `/redroid.html`. Enter the gateway base URL and token. Configure the exact frontend origin in `ALLOWED_ORIGIN` (scheme and host, without a path or trailing slash). The streaming URL should point to the ws-scrcpy-web service through HTTPS; the ADB device ID is normally `redroid:5555`. The browser token remains in memory and is not persisted by the frontend.
+
+## Optional ws-scrcpy-web streaming sidecar
 
 The `streaming` profile adds the ws-scrcpy-web browser streamer on `127.0.0.1:8000`:
 

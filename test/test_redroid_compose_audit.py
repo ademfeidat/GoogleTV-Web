@@ -10,6 +10,7 @@ def valid_config():
             "gateway": {"environment": {"GATEWAY_TOKEN": "x" * 40}, "networks": ["android-private"], "ports": [{"host_ip": "127.0.0.1", "published": "8080", "target": 8080}]},
             "stream": {
                 "profiles": ["streaming"],
+                "networks": ["android-private"],
                 "environment": {"WS_SCRCPY_ALLOW_REMOTE_ADMIN": "0"},
                 "ports": [{"host_ip": "127.0.0.1", "published": "8000", "target": 8000}],
             },
@@ -42,6 +43,19 @@ class RedroidComposeAuditTests(unittest.TestCase):
         config = valid_config()
         del config["services"]["gateway"]
         self.assertTrue(any("gateway" in error for error in audit_compose(config)))
+
+    def test_rejects_services_outside_private_network_and_privileged_gateway(self):
+        config = valid_config()
+        config["services"]["stream"]["networks"] = ["default"]
+        config["services"]["gateway"]["privileged"] = True
+        errors = audit_compose(config)
+        self.assertTrue(any("android-private" in error and "stream" in error for error in errors))
+        self.assertTrue(any("gateway" in error and "privileged" in error for error in errors))
+
+    def test_rejects_missing_gateway_token(self):
+        config = valid_config()
+        config["services"]["gateway"]["environment"]["GATEWAY_TOKEN"] = ""
+        self.assertTrue(any("GATEWAY_TOKEN" in error for error in audit_compose(config)))
 
 
 if __name__ == "__main__":

@@ -45,7 +45,17 @@ The stream sidecar should connect to the Redroid service name and port (`redroid
 
 The current `server/gateway` is a narrow proof-of-concept API for status, remote input and APK installation. ws-scrcpy-web already provides overlapping ADB, input, file and APK features. After a real integration test, consolidate these responsibilities instead of maintaining two competing ADB control paths. Keep only the GoogleTV-specific session/lifecycle API that remains necessary.
 
-## Deployment safety audit\n\nCI renders the Compose model with the optional `streaming` profile enabled and runs `scripts/redroid_compose_audit.py` against the rendered JSON. The audit fails if Redroid ADB, the gateway, or the streaming sidecar publishes a port beyond loopback, if the sidecar is no longer behind the `streaming` profile, or if remote administration is enabled by default. This is a configuration guardrail, not a runtime penetration test and not proof that sidecar login is configured.\n\nRun the same audit before deployment:\n\n```bash\ndocker compose --profile streaming --env-file deploy/redroid/.env -f deploy/redroid/docker-compose.yml config --format json | python3 scripts/redroid_compose_audit.py\n```\n\n## Required proof before adoption
+## Deployment safety audit
+
+CI renders the Compose model with the optional `streaming` profile enabled and runs `scripts/redroid_compose_audit.py` against the rendered JSON. The audit fails if Redroid ADB, the gateway, or the streaming sidecar publishes a port beyond loopback, if the sidecar is no longer behind the `streaming` profile, or if remote administration is enabled by default. This is a configuration guardrail, not a runtime penetration test and not proof that sidecar login is configured.
+
+Run the same audit before deployment:
+
+```bash
+docker compose --profile streaming --env-file deploy/redroid/.env -f deploy/redroid/docker-compose.yml config --format json | python3 scripts/redroid_compose_audit.py
+```
+
+## Required proof before adoption
 
 1. Start Redroid and verify `adb connect redroid:5555` from the stream container.
 2. Confirm device state `device` and Android boot completion.

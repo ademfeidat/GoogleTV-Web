@@ -12,6 +12,7 @@ GoogleTV gateway (token auth, status, input, APK install)
   | private Docker network
   +--> Redroid container (Android userspace + host Linux kernel)
   +--> ADB bridge (private)
+  +--> ws-scrcpy-web candidate (video/audio/input/file transport)
   |
   +--> persistent /data volume
 ```
@@ -46,10 +47,11 @@ The browser must never connect directly to an unauthenticated ADB port.
 - The initial bearer token is a single-user proof-of-concept credential, not a production multi-user identity system.
 
 ### 3. Screen streaming
-- Evaluate NetrisTV/ws-scrcpy and maintained descendants as browser clients and protocol references.
-- The browser needs WebSocket transport and a supported H.264 decoding path; WebCodecs availability differs by browser and requires a secure context in modern implementations.
-- Upstream ws-scrcpy documentation describes remote input, file push and shell access, but warns that its default deployment lacks authentication and transport encryption. Put it behind an authenticated HTTPS/WSS gateway; never expose it directly.
-- If the upstream fork or protocol is unsuitable, use vanilla scrcpy with an ADB tunnel and implement a narrow authenticated WebSocket gateway. Do not fork or vendor the entire stack before the proof of concept.
+- Preferred integration candidate: [ws-scrcpy-web](https://github.com/bilbospocketses/ws-scrcpy-web), currently reviewed at v0.5.13.
+- It provides browser WebSocket streaming, WebCodecs decoding, audio, D-pad/Touch input, file management and APK installation. See `docs/STREAMING-INTEGRATION.md`.
+- Its Docker image is currently Linux amd64 only. It is open by default; enable its built-in login before remote access.
+- The browser needs a secure context for WebCodecs. For reverse proxying, preserve Host, forward HTTPS metadata and WebSocket upgrade headers.
+- The current gateway is a temporary proof of concept. Consolidate duplicate ADB, input and APK operations after the stream integration is proven.
 
 ### 4. Browser interface
 - Keep the Google TV visual identity and responsive layout.
@@ -101,7 +103,8 @@ The browser must never connect directly to an unauthenticated ADB port.
 ## Current status
 
 - Added Redroid Docker Compose profile with persistent `/data` and loopback-only ADB.
-- Added a read-only host preflight script.
-- Added an authenticated gateway with status, allowlisted remote input and APK install endpoints.
-- CI validates gateway syntax, unit contracts, browser smoke tests and Compose configuration.
-- Not yet implemented: actual Redroid host boot test, scrcpy video stream, WSS proxy, browser integration, production user authentication and automated persistence/restore tests.
+- Added a read-only host preflight script and a live ADB/boot-complete acceptance script.
+- Added an authenticated gateway with status, allowlisted input and APK install endpoints.
+- Documented ws-scrcpy-web as the preferred streaming integration candidate; it has not yet been deployed or connected.
+- CI validates gateway syntax, contract tests, browser smoke tests and Compose configuration.
+- Not yet implemented: actual Redroid host boot test, scrcpy video stream, WSS/browser integration, production user authentication and automated persistence/restore tests.

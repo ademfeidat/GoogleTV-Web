@@ -37,6 +37,8 @@ root.innerHTML = `
       <section class="rt-tv-home" aria-label="Android TV home launcher">
         <div class="rt-home-heading"><div><p class="rt-eyebrow">ANDROID TV</p><h2>Home</h2></div><span id="home-app-count" class="rt-muted">No apps loaded</span></div>
         <div class="rt-home-feature"><div><span class="rt-home-pill">YOUR ANDROID</span><h3>Apps, ready for the big screen.</h3><p>Launch apps installed on your connected Android device. App names are shown exactly as reported by Android package IDs.</p></div><div class="rt-home-mark" aria-hidden="true">▶</div></div>
+        <h3 class="rt-home-section-title">Recently opened</h3>
+        <div class="rt-home-grid" id="home-recent" aria-label="Recently opened apps"><p class="rt-home-empty">Apps you launch will appear here.</p></div>
         <h3 class="rt-home-section-title">Favorites</h3>
         <div class="rt-home-grid" id="home-favorites" aria-label="Favorite apps"><p class="rt-home-empty">Your favorite apps will appear here.</p></div>
         <h3 class="rt-home-section-title">Your apps</h3>
@@ -127,7 +129,9 @@ function setAppsStatus(message, kind = "warn") {
 }
 let installedApps = [];
 const FAVORITES_KEY = "googletv.redroid.favorite-packages";
+const RECENTS_KEY = "googletv.redroid.recent-packages";
 let favoritePackages = loadFavorites();
+let recentPackages = loadRecentPackages();
 let showFavoritesOnly = false;
 
 function loadFavorites() {
@@ -136,6 +140,18 @@ function loadFavorites() {
     return new Set(Array.isArray(parsed) ? parsed.filter(value => typeof value === "string" && value.length <= 255) : []);
   } catch { return new Set(); }
 }
+function loadRecentPackages() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(RECENTS_KEY) || "[]");
+    return Array.isArray(parsed)
+      ? [...new Set(parsed.filter(value => typeof value === "string" && value.length <= 255))].slice(0, 8)
+      : [];
+  } catch { return []; }
+}
+function saveRecentPackages() {
+  try { localStorage.setItem(RECENTS_KEY, JSON.stringify(recentPackages)); }
+  catch { setAppsStatus("Recent apps could not be saved in this browser.", "warn"); }
+}
 function saveFavorites() {
   try { localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favoritePackages].sort())); }
   catch { setAppsStatus("Favorites could not be saved in this browser.", "warn"); }
@@ -143,8 +159,10 @@ function saveFavorites() {
 function renderHomeApps() {
   const all = $("home-apps");
   const favorites = $("home-favorites");
+  const recent = $("home-recent");
   all.replaceChildren();
   favorites.replaceChildren();
+  recent.replaceChildren();
   $("home-app-count").textContent = installedApps.length ? installedApps.length + " installed" : "No apps loaded";
   const makeTile = packageName => {
     const tile = document.createElement("button");
@@ -163,6 +181,14 @@ function renderHomeApps() {
     tile.addEventListener("click", () => launchPackage(packageName));
     return tile;
   };
+  const availablePackages = new Set(installedApps.map(app => app.packageName));
+  const recentApps = recentPackages.filter(packageName => availablePackages.has(packageName));
+  if (!recentApps.length) {
+    const empty = document.createElement("p");
+    empty.className = "rt-home-empty";
+    empty.textContent = installedApps.length ? "Launch an app to see it here." : "Recently opened apps will appear here.";
+    recent.append(empty);
+  } else recentApps.forEach(packageName => recent.append(makeTile(packageName)));
   const favoriteApps = installedApps.filter(app => favoritePackages.has(app.packageName));
   if (!favoriteApps.length) {
     const empty = document.createElement("p");
@@ -254,6 +280,10 @@ async function refreshApps() {
     $("favorites-toggle").disabled = false;
     renderApps();
     renderHomeApps();
+    const installedPackages = new Set(installedApps.map(app => app.packageName));
+    recentPackages = recentPackages.filter(packageName => installedPackages.has(packageName)).slice(0, 8);
+    saveRecentPackages();
+    renderHomeApps();
     $("home-status").textContent = "Apps loaded from Android. Select an app tile to launch it.";
     setAppsStatus((result.count || 0) + " installed user app(s) found.", "ok");
   } catch (error) {
@@ -276,6 +306,9 @@ async function launchPackage(packageName) {
     });
     $("launch-status").textContent = "Launch command sent to " + result.packageName + ". " + (result.output || "");
     $("launch-status").dataset.kind = "ok";
+    recentPackages = [packageName, ...recentPackages.filter(item => item !== packageName)].slice(0, 8);
+    saveRecentPackages();
+    renderHomeApps();
     $("home-status").textContent = "Launch request sent to Android for " + packageName + ".";
   } catch (error) {
     $("launch-status").textContent = error.message;

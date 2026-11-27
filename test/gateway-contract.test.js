@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { createGatewayServer, isAuthorized, mapInputAction, parseInstalledPackages, parseLauncherPackages, pruneRateBuckets, validatePackageName, validateTapCoordinates } from "../server/gateway/src/server.js";
+import { createGatewayServer, isAuthorized, mapInputAction, parseInstalledPackages, parseLauncherPackages, pruneRateBuckets, refreshRateBucket, validatePackageName, validateTapCoordinates } from "../server/gateway/src/server.js";
 
 test("gateway maps the TV remote allowlist to Android keycodes", () => {
   assert.equal(mapInputAction("DPAD_UP"), "19");
@@ -470,4 +470,19 @@ test("gateway rate-limit storage prunes expired and oldest buckets to a hard cap
   pruneRateBuckets(buckets, 100_000, 2);
   assert.deepEqual([...buckets.keys()], ["middle", "newest"]);
   assert.equal(buckets.size, 2);
+});
+
+
+test("gateway refreshes active rate-limit buckets before evicting least-recently-used entries", () => {
+  const buckets = new Map([
+    ["active", { start: 90_000, count: 2 }],
+    ["middle", { start: 95_000, count: 1 }],
+    ["newest", { start: 99_000, count: 1 }]
+  ]);
+  const active = buckets.get("active");
+  active.count += 1;
+  refreshRateBucket(buckets, "active", active);
+  pruneRateBuckets(buckets, 100_000, 2);
+  assert.deepEqual([...buckets.keys()], ["newest", "active"]);
+  assert.equal(buckets.get("active").count, 3);
 });

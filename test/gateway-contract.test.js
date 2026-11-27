@@ -31,3 +31,48 @@ test("gateway bearer authentication compares the complete token", () => {
   assert.equal(isAuthorized("abc123", "abc123"), false);
   assert.equal(isAuthorized("Bearer abc123", ""), false);
 });
+
+import { createGatewayServer } from "../server/gateway/src/server.js";
+
+test("gateway health endpoint is public but reveals no Android details", async () => {
+  const server = createGatewayServer();
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  try {
+    const response = await fetch(`http://127.0.0.1:${address.port}/healthz`);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { ok: true });
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});
+
+test("gateway rejects API access without bearer authentication", async () => {
+  const server = createGatewayServer();
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  try {
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/status`);
+    assert.equal(response.status, 401);
+    assert.deepEqual(await response.json(), { error: "Unauthorized" });
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});
+
+test("gateway rejects unknown API routes without invoking Android commands", async () => {
+  const server = createGatewayServer();
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  try {
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/not-a-route`, {
+      headers: { Authorization: "Bearer test-token" }
+    });
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), { error: "Not found" });
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});

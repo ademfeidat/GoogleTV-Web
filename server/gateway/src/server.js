@@ -58,14 +58,14 @@ function json(res, status, value, extraHeaders = {}) {
   res.end(body);
 }
 
-function originAllowed(req) {
+function originAllowed(req, allowedOrigin = ALLOWED_ORIGIN) {
   const origin = req.headers.origin;
-  return !origin || !ALLOWED_ORIGIN || origin === ALLOWED_ORIGIN;
+  return !origin || !allowedOrigin || origin === allowedOrigin;
 }
 
-function corsHeaders(req) {
+function corsHeaders(req, allowedOrigin = ALLOWED_ORIGIN) {
   const origin = req.headers.origin;
-  if (!origin || !ALLOWED_ORIGIN || origin !== ALLOWED_ORIGIN) return {};
+  if (!origin || !allowedOrigin || origin !== allowedOrigin) return {};
   return {
     "access-control-allow-origin": ALLOWED_ORIGIN,
     "access-control-allow-methods": "GET, POST, OPTIONS",
@@ -145,13 +145,13 @@ async function installApk(req, res, headers) {
   }
 }
 
-async function handle(req, res) {
-  const headers = corsHeaders(req);
-  if (!originAllowed(req)) return json(res, 403, { error: "Origin not allowed" });
+async function handle(req, res, { token = TOKEN, allowedOrigin = ALLOWED_ORIGIN } = {}) {
+  const headers = corsHeaders(req, allowedOrigin);
+  if (!originAllowed(req, allowedOrigin)) return json(res, 403, { error: "Origin not allowed" });
   if (req.method === "OPTIONS") { res.writeHead(204, { ...headers, "access-control-max-age": "600" }); return res.end(); }
   if (req.method === "GET" && req.url === "/healthz") return json(res, 200, { ok: true });
   if (!rateLimit(req, res)) return;
-  if (!isAuthorized(req.headers.authorization)) return json(res, 401, { error: "Unauthorized" }, headers);
+  if (!isAuthorized(req.headers.authorization, token)) return json(res, 401, { error: "Unauthorized" }, headers);
 
   if (req.method === "GET" && req.url === "/api/status") {
     try {
@@ -193,9 +193,9 @@ async function handle(req, res) {
   return json(res, 404, { error: "Not found" }, headers);
 }
 
-export function createGatewayServer() {
+export function createGatewayServer(options = {}) {
   return createServer((req, res) => {
-    handle(req, res).catch(() => {
+    handle(req, res, options).catch(() => {
       if (!res.headersSent) json(res, 500, { error: "Internal gateway error" });
       else res.destroy();
     });

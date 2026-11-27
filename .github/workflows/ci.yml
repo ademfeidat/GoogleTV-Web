@@ -16,7 +16,10 @@ jobs:
       - run: npm run check
       - run: node --check server/gateway/src/server.js
       - run: npm test
-      - name: Test Python Redroid diagnostics\n        run: |\n          python3 -m py_compile scripts/redroid_doctor.py test/test_redroid_doctor.py\n          python3 -m unittest discover -s test -p 'test_*.py'\n      - run: npm run build
+      - name: Test Python Redroid diagnostics
+        run: |
+          python3 -m py_compile scripts/redroid_doctor.py test/test_redroid_doctor.py
+          python3 -m unittest discover -s test -p 'test_*.py'
       - name: Install Chromium for browser smoke test
         run: npx playwright install --with-deps chromium
       - name: Run browser smoke test

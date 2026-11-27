@@ -285,7 +285,9 @@ async function refreshApps() {
     saveRecentPackages();
     renderHomeApps();
     $("home-status").textContent = "Apps loaded from Android. Select an app tile to launch it.";
-    setAppsStatus(result.discovery === "legacy-packages"\n      ? (result.count || 0) + " installed package(s) found; some may not be launchable."\n      : (result.count || 0) + " launchable app(s) found.", "ok");
+    setAppsStatus(result.discovery === "legacy-packages"
+      ? (result.count || 0) + " installed package(s) found; some may not be launchable."
+      : (result.count || 0) + " launchable app(s) found.", "ok");
   } catch (error) {
     setAppsStatus(error.message, "error");
   } finally {

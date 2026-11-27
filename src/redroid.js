@@ -27,6 +27,9 @@ root.innerHTML = `
       <div class="rt-field"><label for="package-name">Launch installed app (Android package name)</label><input class="rt-input" id="package-name" type="text" inputmode="text" autocomplete="off" placeholder="com.example.app"></div>
       <button class="rt-button" id="launch-app" disabled>Launch app</button>
       <div class="rt-status" id="launch-status">Connect to Android and enter an installed app's package name.</div>
+      <div class="rt-apps-head"><h2>Installed apps</h2><button class="rt-button" id="refresh-apps" disabled>Refresh list</button></div>
+      <div class="rt-status" id="apps-status">Connect to Android to discover installed user apps.</div>
+      <div class="rt-app-list" id="installed-apps" aria-live="polite"></div>
     </aside>
     <section class="rt-panel">
       <div class="rt-stream-head"><h2>Android TV display</h2><span class="rt-muted" id="stream-state">Stream not started</span></div>
@@ -65,6 +68,7 @@ function setConnected(value) {
   $("new-tab").disabled = !value || !streamUrl;
   $("install-apk").disabled = !value || !$("apk-file").files.length;
   $("launch-app").disabled = !value || !$("package-name").value.trim();
+  $("refresh-apps").disabled = !value;
   document.querySelectorAll("[data-key]").forEach(button => { button.disabled = !value; });
 }
 async function api(path, options = {}) {
@@ -106,6 +110,48 @@ async function sendRemote(action) {
     await api("/api/input", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(remoteActionPayload(action)) });
   } catch (error) { setStatus("Remote command failed: " + error.message, "error"); }
 }
+function setAppsStatus(message, kind = "warn") {
+  $("apps-status").textContent = message;
+  $("apps-status").dataset.kind = kind;
+}
+function renderApps(apps) {
+  const list = $("installed-apps");
+  list.replaceChildren();
+  if (!apps.length) {
+    const empty = document.createElement("p");
+    empty.className = "rt-note";
+    empty.textContent = "No third-party apps were found on this Android device.";
+    list.append(empty);
+    return;
+  }
+  for (const app of apps) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "rt-app-item";
+    button.textContent = app.packageName;
+    button.title = "Select " + app.packageName + " to launch";
+    button.addEventListener("click", () => {
+      $("package-name").value = app.packageName;
+      $("launch-app").disabled = !connected;
+      $("launch-status").textContent = "Selected " + app.packageName + ". Press Launch app to start it.";
+    });
+    list.append(button);
+  }
+}
+async function refreshApps() {
+  if (!connected) return;
+  $("refresh-apps").disabled = true;
+  setAppsStatus("Reading installed user apps from Android…");
+  try {
+    const result = await api("/api/apps");
+    renderApps(result.apps || []);
+    setAppsStatus((result.count || 0) + " installed user app(s) found.", "ok");
+  } catch (error) {
+    setAppsStatus(error.message, "error");
+  } finally {
+    $("refresh-apps").disabled = !connected;
+  }
+}
 async function launchApp() {
   const packageName = $("package-name").value.trim();
   if (!packageName) { $("launch-status").textContent = "Enter the Android package name."; return; }
@@ -136,6 +182,7 @@ async function installApk() {
   try {
     const result = await api("/api/apk", { method: "POST", headers: { "Content-Type": "application/vnd.android.package-archive" }, body: file });
     setApkStatus("APK installed successfully. " + (result.output || ""), "ok");
+    await refreshApps();
   } catch (error) { setApkStatus(error.message, "error"); }
   finally { $("install-apk").disabled = !connected; }
 }
@@ -166,6 +213,8 @@ $("disconnect").addEventListener("click", () => {
   $("stream-state").textContent = "Stream not started";
   setStatus("Credentials cleared from this page's memory.");
   setApkStatus("Connect to Android before installing an APK.");
+  setAppsStatus("Connect to Android to discover installed user apps.");
+  $("installed-apps").replaceChildren();
 });
 $("stream-url").addEventListener("input", () => {
   try { streamUrl = normalizeEndpoint($("stream-url").value, "Streaming URL"); }
@@ -178,6 +227,7 @@ $("new-tab").addEventListener("click", () => openStream(true));
 $("apk-file").addEventListener("change", () => { $("install-apk").disabled = !connected || !$("apk-file").files.length; });
 $("install-apk").addEventListener("click", installApk);
 $("launch-app").addEventListener("click", launchApp);
+$("refresh-apps").addEventListener("click", refreshApps);
 $("package-name").addEventListener("input", () => {
   $("launch-app").disabled = !connected || !$("package-name").value.trim();
 });

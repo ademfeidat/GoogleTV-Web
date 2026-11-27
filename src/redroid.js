@@ -24,6 +24,9 @@ root.innerHTML = `
       <button class="rt-button" id="install-apk" disabled>Install selected APK</button>
       <div class="rt-status" id="apk-status">Connect to Android before installing an APK.</div>
       <p class="rt-note">The APK is sent directly to the authenticated gateway over HTTPS. It is not stored in this page's local storage.</p>
+      <div class="rt-field"><label for="package-name">Launch installed app (Android package name)</label><input class="rt-input" id="package-name" type="text" inputmode="text" autocomplete="off" placeholder="com.example.app"></div>
+      <button class="rt-button" id="launch-app" disabled>Launch app</button>
+      <div class="rt-status" id="launch-status">Connect to Android and enter an installed app's package name.</div>
     </aside>
     <section class="rt-panel">
       <div class="rt-stream-head"><h2>Android TV display</h2><span class="rt-muted" id="stream-state">Stream not started</span></div>
@@ -61,6 +64,7 @@ function setConnected(value) {
   $("open-stream").disabled = !value || !streamUrl;
   $("new-tab").disabled = !value || !streamUrl;
   $("install-apk").disabled = !value || !$("apk-file").files.length;
+  $("launch-app").disabled = !value || !$("package-name").value.trim();
   document.querySelectorAll("[data-key]").forEach(button => { button.disabled = !value; });
 }
 async function api(path, options = {}) {
@@ -101,6 +105,26 @@ async function sendRemote(action) {
   try {
     await api("/api/input", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(remoteActionPayload(action)) });
   } catch (error) { setStatus("Remote command failed: " + error.message, "error"); }
+}
+async function launchApp() {
+  const packageName = $("package-name").value.trim();
+  if (!packageName) { $("launch-status").textContent = "Enter the Android package name."; return; }
+  $("launch-app").disabled = true;
+  $("launch-status").textContent = "Starting " + packageName + "…";
+  try {
+    const result = await api("/api/launch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ packageName })
+    });
+    $("launch-status").textContent = "Launch command sent to " + result.packageName + ". " + (result.output || "");
+    $("launch-status").dataset.kind = "ok";
+  } catch (error) {
+    $("launch-status").textContent = error.message;
+    $("launch-status").dataset.kind = "error";
+  } finally {
+    $("launch-app").disabled = !connected || !$("package-name").value.trim();
+  }
 }
 async function installApk() {
   const file = $("apk-file").files[0];
@@ -153,4 +177,8 @@ $("open-stream").addEventListener("click", () => openStream(false));
 $("new-tab").addEventListener("click", () => openStream(true));
 $("apk-file").addEventListener("change", () => { $("install-apk").disabled = !connected || !$("apk-file").files.length; });
 $("install-apk").addEventListener("click", installApk);
+$("launch-app").addEventListener("click", launchApp);
+$("package-name").addEventListener("input", () => {
+  $("launch-app").disabled = !connected || !$("package-name").value.trim();
+});
 document.querySelectorAll("[data-key]").forEach(button => button.addEventListener("click", () => sendRemote(button.dataset.key)));

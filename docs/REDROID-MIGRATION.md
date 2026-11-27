@@ -41,9 +41,9 @@ The browser must never connect directly to an unauthenticated ADB port.
 
 ### 2. Gateway and Android control
 - The first gateway implementation is in `server/gateway`.
-- It uses ADB over the private Docker network and exposes only status, an allowlisted remote-input API and APK installation.
+- It uses ADB over the private Docker network and exposes only status, allowlisted remote-input, APK installation and validated app-launch APIs.
 - APK uploads are streamed to a temporary directory, capped at 512 MiB, installed with `adb install -r`, then removed.
-- No arbitrary shell endpoint is exposed.
+- App launch accepts only a validated Android package name and invokes `monkey -p <package> 1` as separate ADB arguments. No arbitrary shell endpoint is exposed.
 - The initial bearer token is a single-user proof-of-concept credential, not a production multi-user identity system.
 
 ### 3. Screen streaming

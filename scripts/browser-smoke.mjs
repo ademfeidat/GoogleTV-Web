@@ -5,7 +5,7 @@ import { chromium } from 'playwright';
 
 const port = 4173;
 const origin = `http://127.0.0.1:${port}`;
-const server = spawn('npm', ['run', 'preview', '--', '--host', '127.0.0.1', '--port', String(port), '--strictPort'], {
+const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', String(port), '--strictPort'], {
   stdio: ['ignore', 'pipe', 'pipe'],
   env: { ...process.env, CI: '1' },
 });
@@ -31,9 +31,10 @@ try {
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
 
-  const response = await page.goto(origin, { waitUntil: 'networkidle' });
+  page.setDefaultTimeout(10000);
+  const response = await page.goto(origin, { waitUntil: 'domcontentloaded', timeout: 15000 });
   assert.equal(response.status(), 200);
-  await page.waitForSelector('#start');
+  await page.waitForSelector('#start', { timeout: 10000 });
   assert.equal(await page.title(), 'GoogleTV Web — Browser VM');
   assert.equal(await page.locator('h1').innerText(), 'GoogleTV Web');
   assert.equal(await page.locator('#start').isDisabled(), true, 'Start must remain disabled until an ISO is selected');

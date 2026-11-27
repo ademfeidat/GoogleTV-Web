@@ -105,6 +105,6 @@ The browser must never connect directly to an unauthenticated ADB port.
 - Added Redroid Docker Compose profile with persistent `/data` and loopback-only ADB.
 - Added a read-only host preflight script and a live ADB/boot-complete acceptance script.
 - Added an authenticated gateway with status, allowlisted input and APK install endpoints.
-- Documented ws-scrcpy-web as the preferred streaming integration candidate; it has not yet been deployed or connected.
+- Documented ws-scrcpy-web as the preferred streaming integration candidate and added its optional Compose sidecar. The new Redroid dashboard can embed its documented stream endpoint.
 - CI validates gateway syntax, contract tests, browser smoke tests and Compose configuration.
-- Not yet implemented: actual Redroid host boot test, scrcpy video stream, WSS/browser integration, production user authentication and automated persistence/restore tests.
+- Not yet verified: actual Redroid host boot, live scrcpy video/audio, WSS browser stream, end-to-end APK install on a real guest, production multi-user authentication and automated persistence/restore tests.

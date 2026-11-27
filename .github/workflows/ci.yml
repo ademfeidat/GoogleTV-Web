@@ -18,7 +18,7 @@ jobs:
       - run: npm test
       - name: Test Python Redroid diagnostics
         run: |
-          python3 -m py_compile scripts/redroid_doctor.py test/test_redroid_doctor.py
+          python3 -m py_compile scripts/redroid_doctor.py scripts/redroid_compose_audit.py test/test_redroid_doctor.py test/test_redroid_compose_audit.py
           python3 -m unittest discover -s test -p 'test_*.py'
       - run: npm run build
       - name: Install Chromium for browser smoke test
@@ -32,4 +32,4 @@ jobs:
           bash -n scripts/redroid-data.sh
           bash scripts/redroid-data.sh --help
       - name: Validate Redroid Compose configuration
-        run: docker compose --env-file deploy/redroid/.env.example -f deploy/redroid/docker-compose.yml config --quiet
+        run: docker compose --env-file deploy/redroid/.env.example -f deploy/redroid/docker-compose.yml config --quiet\n          docker compose --profile streaming --env-file deploy/redroid/.env.example -f deploy/redroid/docker-compose.yml config --format json | python3 scripts/redroid_compose_audit.py

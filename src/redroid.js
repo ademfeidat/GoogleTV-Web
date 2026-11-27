@@ -30,6 +30,7 @@ root.innerHTML = `
       <div class="rt-apps-head"><h2>Installed apps</h2><button class="rt-button" id="refresh-apps" disabled>Refresh list</button></div>
       <div class="rt-status" id="apps-status">Connect to Android to discover installed user apps.</div>
       <div class="rt-field rt-app-filter"><label for="app-filter">Find an installed app</label><input class="rt-input" id="app-filter" type="search" placeholder="Filter by package name…" autocomplete="off" disabled></div>
+      <button class="rt-button rt-favorites-toggle" id="favorites-toggle" type="button" aria-pressed="false" disabled>Show favorites ☆</button>
       <div class="rt-app-list" id="installed-apps" aria-live="polite"></div>
     </aside>
     <section class="rt-panel">
@@ -116,12 +117,25 @@ function setAppsStatus(message, kind = "warn") {
   $("apps-status").dataset.kind = kind;
 }
 let installedApps = [];
+const FAVORITES_KEY = "googletv.redroid.favorite-packages";
+let favoritePackages = loadFavorites();
+let showFavoritesOnly = false;
 
+function loadFavorites() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(FAVORITES_KEY) || "[]");
+    return new Set(Array.isArray(parsed) ? parsed.filter(value => typeof value === "string" && value.length <= 255) : []);
+  } catch { return new Set(); }
+}
+function saveFavorites() {
+  try { localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favoritePackages].sort())); }
+  catch { setAppsStatus("Favorites could not be saved in this browser.", "warn"); }
+}
 function renderApps(apps = installedApps) {
   const list = $("installed-apps");
   const query = $("app-filter").value.trim().toLowerCase();
   list.replaceChildren();
-  const filtered = apps.filter(app => app.packageName.toLowerCase().includes(query));
+  const filtered = apps.filter(app => app.packageName.toLowerCase().includes(query) && (!showFavoritesOnly || favoritePackages.has(app.packageName)));
   if (!apps.length) {
     const empty = document.createElement("p");
     empty.className = "rt-note";
@@ -150,6 +164,8 @@ function renderApps(apps = installedApps) {
     heading.textContent = initial;
     section.append(heading);
     for (const app of entries) {
+      const row = document.createElement("div");
+      row.className = "rt-app-row";
       const button = document.createElement("button");
       button.type = "button";
       button.className = "rt-app-item";
@@ -160,7 +176,21 @@ function renderApps(apps = installedApps) {
         $("launch-app").disabled = !connected;
         $("launch-status").textContent = "Selected " + app.packageName + ". Press Launch app to start it.";
       });
-      section.append(button);
+      const favorite = document.createElement("button");
+      favorite.type = "button";
+      favorite.className = "rt-app-favorite";
+      favorite.textContent = favoritePackages.has(app.packageName) ? "★" : "☆";
+      favorite.setAttribute("aria-label", (favoritePackages.has(app.packageName) ? "Remove " : "Add ") + app.packageName + (favoritePackages.has(app.packageName) ? " from" : " to") + " favorites");
+      favorite.setAttribute("aria-pressed", String(favoritePackages.has(app.packageName)));
+      favorite.addEventListener("click", () => {
+        if (favoritePackages.has(app.packageName)) favoritePackages.delete(app.packageName);
+        else favoritePackages.add(app.packageName);
+        saveFavorites();
+        $("favorites-toggle").textContent = showFavoritesOnly ? "Show all apps" : "Show favorites ☆";
+        renderApps();
+      });
+      row.append(button, favorite);
+      section.append(row);
     }
     list.append(section);
   }
@@ -173,6 +203,7 @@ async function refreshApps() {
     const result = await api("/api/apps");
     installedApps = (result.apps || []).filter(app => typeof app.packageName === "string");
     $("app-filter").disabled = false;
+    $("favorites-toggle").disabled = false;
     renderApps();
     setAppsStatus((result.count || 0) + " installed user app(s) found.", "ok");
   } catch (error) {
@@ -235,6 +266,10 @@ $("connect").addEventListener("click", checkAndroid);
 $("disconnect").addEventListener("click", () => {
   gatewayBase = ""; accessToken = ""; streamUrl = "";
   installedApps = [];
+  showFavoritesOnly = false;
+  $("favorites-toggle").textContent = "Show favorites ☆";
+  $("favorites-toggle").setAttribute("aria-pressed", "false");
+  $("favorites-toggle").disabled = true;
   $("app-filter").value = "";
   $("app-filter").disabled = true;
   $("gateway-token").value = "";
@@ -261,6 +296,12 @@ $("install-apk").addEventListener("click", installApk);
 $("launch-app").addEventListener("click", launchApp);
 $("refresh-apps").addEventListener("click", refreshApps);
 $("app-filter").addEventListener("input", () => renderApps());
+$("favorites-toggle").addEventListener("click", () => {
+  showFavoritesOnly = !showFavoritesOnly;
+  $("favorites-toggle").textContent = showFavoritesOnly ? "Show all apps" : "Show favorites ☆";
+  $("favorites-toggle").setAttribute("aria-pressed", String(showFavoritesOnly));
+  renderApps();
+});
 $("package-name").addEventListener("input", () => {
   $("launch-app").disabled = !connected || !$("package-name").value.trim();
 });

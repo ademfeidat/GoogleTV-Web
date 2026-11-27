@@ -141,8 +141,8 @@ def inspect_host(
         ))
     else:
         checks.append(Check(
-            "binder", "FAIL",
-            "Binder devices and BinderFS kernel support are missing; enable binder_linux/BinderFS in the host kernel",
+            "binder", "WARN",
+            "Binder devices and BinderFS are not currently exposed; check whether binder_linux is available and loadable for this kernel",
         ))
 
     if exists("/dev/ashmem") or exists("/sys/module/ashmem_linux"):

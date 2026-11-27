@@ -111,7 +111,7 @@ async function readJson(req) {
   catch { const error = new Error("Invalid JSON body"); error.statusCode = 400; throw error; }
 }
 
-async function installApk(req, res, headers) {
+async function installApk(req, res, headers, runAdb = adb) {
   const contentType = String(req.headers["content-type"] || "").split(";")[0].trim().toLowerCase();
   if (!["application/vnd.android.package-archive", "application/octet-stream"].includes(contentType)) {
     return json(res, 415, { error: "Send the APK as a raw binary request body" }, headers);
@@ -145,7 +145,7 @@ async function installApk(req, res, headers) {
   }
 }
 
-async function handle(req, res, { token = TOKEN, allowedOrigin = ALLOWED_ORIGIN } = {}) {
+async function handle(req, res, { token = TOKEN, allowedOrigin = ALLOWED_ORIGIN, runAdb = adb } = {}) {
   const headers = corsHeaders(req, allowedOrigin);
   if (!originAllowed(req, allowedOrigin)) return json(res, 403, { error: "Origin not allowed" });
   if (req.method === "OPTIONS") { res.writeHead(204, { ...headers, "access-control-max-age": "600" }); return res.end(); }
@@ -179,9 +179,9 @@ async function handle(req, res, { token = TOKEN, allowedOrigin = ALLOWED_ORIGIN 
       await ensureDevice();
       if (body.action === "tap") {
         const { x, y } = validateTapCoordinates(body.x, body.y);
-        await adb(["-s", SERIAL, "shell", "input", "tap", String(x), String(y)]);
+        await runAdb(["-s", SERIAL, "shell", "input", "tap", String(x), String(y)]);
       } else {
-        await adb(["-s", SERIAL, "shell", "input", "keyevent", mapInputAction(body.action)]);
+        await runAdb(["-s", SERIAL, "shell", "input", "keyevent", mapInputAction(body.action)]);
       }
       return json(res, 200, { ok: true }, headers);
     } catch (error) {
@@ -189,7 +189,7 @@ async function handle(req, res, { token = TOKEN, allowedOrigin = ALLOWED_ORIGIN 
     }
   }
 
-  if (req.method === "POST" && req.url === "/api/apk") return installApk(req, res, headers);
+  if (req.method === "POST" && req.url === "/api/apk") return installApk(req, res, headers, runAdb);
   return json(res, 404, { error: "Not found" }, headers);
 }
 

@@ -107,4 +107,6 @@ The browser must never connect directly to an unauthenticated ADB port.
 - Added an authenticated gateway with status, allowlisted input and APK install endpoints.
 - Documented ws-scrcpy-web as the preferred streaming integration candidate and added its optional Compose sidecar. The new Redroid dashboard can embed its documented stream endpoint.
 - CI validates gateway syntax, contract tests, browser smoke tests and Compose configuration.
+- Added a dedicated `/redroid.html` browser dashboard alongside the preserved v86 page. It can check gateway status, send allowlisted remote actions, upload/install APKs, and embed ws-scrcpy-web's documented stream URL.
+- Extended the production build and Chromium smoke test to cover both HTML entry points; the current CI run passes.
 - Not yet verified: actual Redroid host boot, live scrcpy video/audio, WSS browser stream, end-to-end APK install on a real guest, production multi-user authentication and automated persistence/restore tests.

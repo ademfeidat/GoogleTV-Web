@@ -82,3 +82,12 @@
 - Added v86 WebAssembly runtime integration and initial VM launcher UI.
 - Added ISO and firmware selection with start, stop, restart and fullscreen controls.
 - Documented emulator compatibility limits and staged testing requirements.
+
+## Unreleased — Redroid migration branch
+
+- Added a private Docker Compose profile for Redroid with persistent Android `/data` and loopback-only ADB access.
+- Added a read-only Linux host preflight check for architecture, Docker, Binder, ashmem/memfd compatibility and optional GPU render nodes.
+- Added a token-authenticated Node.js ADB gateway with Android status, allowlisted TV remote input and bounded APK installation.
+- Added gateway contract tests and CI syntax validation.
+- Documented the secure streaming integration evaluation for ws-scrcpy-web.
+- This is migration scaffolding only: real Redroid boot, browser video streaming, production login and full UI migration remain unverified.

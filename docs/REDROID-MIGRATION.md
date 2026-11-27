@@ -43,6 +43,7 @@ The browser must never connect directly to an unauthenticated ADB port.
 - The first gateway implementation is in `server/gateway`.
 - It uses ADB over the private Docker network and exposes only status, allowlisted remote-input, APK installation and validated app-launch APIs.
 - APK uploads are streamed to a temporary directory, capped at 512 MiB, installed with `adb install -r`, then removed.
+- The authenticated `/api/apps` endpoint lists up to 300 validated third-party package names from `pm list packages -3`; it returns package IDs rather than guessed display labels. The dashboard lets the user select an entry to populate the launch field.
 - App launch accepts only a validated Android package name and invokes `monkey -p <package> 1` as separate ADB arguments. No arbitrary shell endpoint is exposed.
 - The initial bearer token is a single-user proof-of-concept credential, not a production multi-user identity system.
 
@@ -108,5 +109,5 @@ The browser must never connect directly to an unauthenticated ADB port.
 - Documented ws-scrcpy-web as the preferred streaming integration candidate and added its optional Compose sidecar. The new Redroid dashboard can embed its documented stream endpoint.
 - CI validates gateway syntax, contract tests, browser smoke tests and Compose configuration.
 - Added a dedicated `/redroid.html` browser dashboard alongside the preserved v86 page. It can check gateway status, send allowlisted remote actions, upload/install APKs, and embed ws-scrcpy-web's documented stream URL.
-- Extended the production build and Chromium smoke test to cover both HTML entry points; the current CI run passes.
+- Extended the production build and Chromium smoke test to cover both HTML entry points, app launch and installed-app discovery.
 - Not yet verified: actual Redroid host boot, live scrcpy video/audio, WSS browser stream, end-to-end APK install on a real guest, production multi-user authentication and automated persistence/restore tests.

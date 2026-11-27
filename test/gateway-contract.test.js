@@ -166,7 +166,7 @@ test("gateway remote input sends only the mapped Android keycode", async () => {
   const calls = [];
   const runAdb = async args => {
     calls.push(args);
-    if (args[0] === "get-state") return { stdout: "device\\n", stderr: "" };
+    if (args[0] === "get-state") return { stdout: "device", stderr: "" };
     return { stdout: "", stderr: "" };
   };
   const token = "test-token-with-at-least-32-characters";

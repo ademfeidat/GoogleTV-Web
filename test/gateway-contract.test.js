@@ -105,3 +105,29 @@ test("gateway CORS allows only the configured exact origin", async () => {
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }
 });
+
+test("gateway rejects unsupported and empty APK uploads before ADB access", async () => {
+  const server = createGatewayServer({ token: "test-token-with-at-least-32-characters" });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  const endpoint = `http://127.0.0.1:${address.port}/api/apk`;
+  const headers = { Authorization: "Bearer test-token-with-at-least-32-characters" };
+  try {
+    const unsupported = await fetch(endpoint, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "text/plain" },
+      body: "not an apk"
+    });
+    assert.equal(unsupported.status, 415);
+
+    const empty = await fetch(endpoint, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/vnd.android.package-archive" },
+      body: ""
+    });
+    assert.equal(empty.status, 400);
+    assert.deepEqual(await empty.json(), { error: "APK body is empty" });
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});

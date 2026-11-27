@@ -32,4 +32,5 @@ jobs:
           bash -n scripts/redroid-data.sh
           bash scripts/redroid-data.sh --help
       - name: Validate Redroid Compose configuration
-        run: docker compose --env-file deploy/redroid/.env.example -f deploy/redroid/docker-compose.yml config --quiet\n          docker compose --profile streaming --env-file deploy/redroid/.env.example -f deploy/redroid/docker-compose.yml config --format json | python3 scripts/redroid_compose_audit.py
+        run: docker compose --env-file deploy/redroid/.env.example -f deploy/redroid/docker-compose.yml config --quiet
+          docker compose --profile streaming --env-file deploy/redroid/.env.example -f deploy/redroid/docker-compose.yml config --format json | python3 scripts/redroid_compose_audit.py

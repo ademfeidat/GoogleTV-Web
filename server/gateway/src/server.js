@@ -155,11 +155,11 @@ async function handle(req, res, { token = TOKEN, allowedOrigin = ALLOWED_ORIGIN,
 
   if (req.method === "GET" && req.url === "/api/status") {
     try {
-      await ensureDevice();
+      await ensureDevice(runAdb);
       const [boot, release, model] = await Promise.all([
-        adb(["-s", SERIAL, "shell", "getprop", "sys.boot_completed"]),
-        adb(["-s", SERIAL, "shell", "getprop", "ro.build.version.release"]),
-        adb(["-s", SERIAL, "shell", "getprop", "ro.product.model"])
+        runAdb(["-s", SERIAL, "shell", "getprop", "sys.boot_completed"]),
+        runAdb(["-s", SERIAL, "shell", "getprop", "ro.build.version.release"]),
+        runAdb(["-s", SERIAL, "shell", "getprop", "ro.product.model"])
       ]);
       return json(res, 200, {
         connected: true, bootCompleted: boot.stdout.trim() === "1",
@@ -176,7 +176,7 @@ async function handle(req, res, { token = TOKEN, allowedOrigin = ALLOWED_ORIGIN,
   if (req.method === "POST" && req.url === "/api/input") {
     try {
       const body = await readJson(req);
-      await ensureDevice();
+      await ensureDevice(runAdb);
       if (body.action === "tap") {
         const { x, y } = validateTapCoordinates(body.x, body.y);
         await runAdb(["-s", SERIAL, "shell", "input", "tap", String(x), String(y)]);

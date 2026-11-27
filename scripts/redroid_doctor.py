@@ -76,6 +76,37 @@ def inspect_host(
     else:
         checks.append(Check("architecture", "FAIL", f"Unsupported architecture: {architecture}"))
 
+    # Check Redroid's documented host prerequisites independently.
+    try:
+        page_size = __import__("os").sysconf("SC_PAGE_SIZE")
+        if page_size == 4096:
+            checks.append(Check("page_size", "PASS", "Host memory page size is 4096 bytes"))
+        else:
+            checks.append(Check("page_size", "FAIL", f"Redroid requires 4096-byte pages; host reports {page_size}"))
+    except (OSError, ValueError):
+        checks.append(Check("page_size", "WARN", "Could not determine host memory page size"))
+
+    ipv6_file = Path("/proc/net/if_inet6")
+    ipv6_disabled = Path("/proc/sys/net/ipv6/conf/all/disable_ipv6")
+    if ipv6_file.exists():
+        try:
+            disabled = ipv6_disabled.read_text().strip() == "1" if ipv6_disabled.exists() else False
+        except OSError:
+            disabled = False
+        checks.append(Check(
+            "ipv6",
+            "FAIL" if disabled else "PASS",
+            "IPv6 is disabled by the host kernel" if disabled else "IPv6 kernel interface is available",
+        ))
+    else:
+        checks.append(Check("ipv6", "FAIL", "IPv6 interface support is not exposed at /proc/net/if_inet6"))
+
+    binder_fs = False
+    try:
+        binder_fs = any(line.split()[-1:] == ["binder"] for line in Path("/proc/filesystems").read_text().splitlines())
+    except OSError:
+        pass
+
     if not which("docker"):
         checks.append(Check("docker_cli", "FAIL", "Docker CLI not found"))
     else:
@@ -98,21 +129,31 @@ def inspect_host(
     found = [device for device in binder if exists(device)]
     if found:
         checks.append(Check("binder", "PASS", "Binder devices found: " + ", ".join(found)))
-    elif exists("/dev/binderfs"):
+    elif exists("/dev/binderfs") and binder_fs:
         checks.append(Check(
             "binder", "WARN",
-            "/dev/binderfs exists but binder device nodes are absent; verify binderfs mount and device creation",
+            "BinderFS path and kernel filesystem support exist, but binder devices are not present; mount BinderFS and create binder/hwbinder/vndbinder devices",
+        ))
+    elif binder_fs:
+        checks.append(Check(
+            "binder", "WARN",
+            "Kernel exposes BinderFS but no Binder device nodes are mounted; configure BinderFS before starting Redroid",
         ))
     else:
         checks.append(Check(
-            "binder", "WARN",
-            "No binder devices or /dev/binderfs found; Redroid needs host binder kernel support",
+            "binder", "FAIL",
+            "Binder devices and BinderFS kernel support are missing; enable binder_linux/BinderFS in the host kernel",
         ))
 
     if exists("/dev/ashmem") or exists("/sys/module/ashmem_linux"):
         checks.append(Check("ashmem", "INFO", "ashmem compatibility detected; requirements depend on Android image/kernel"))
     else:
         checks.append(Check("ashmem", "INFO", "No ashmem detected; newer Android/kernel combinations may use memfd"))
+
+    if exists("/dev/dma_heap") or exists("/dev/ion"):
+        checks.append(Check("dma_heap", "PASS", "ION or DMA-BUF heap device interface is present"))
+    else:
+        checks.append(Check("dma_heap", "WARN", "No /dev/dma_heap or /dev/ion node found; verify host kernel support for the selected Redroid image"))
 
     if list(Path("/dev/dri").glob("renderD*")) if exists("/dev/dri") else []:
         checks.append(Check("gpu", "INFO", "GPU render node found; driver and container access still need validation"))

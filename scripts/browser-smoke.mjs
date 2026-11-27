@@ -99,7 +99,7 @@ try {
   assert.equal(await redroidPage.locator('#installed-apps .rt-app-item').count(), 1, 'Search should filter the app library');
   await redroidPage.locator('#app-filter').fill('not-installed');
   assert.equal(await redroidPage.locator('#installed-apps .rt-app-item').count(), 0);
-  assert.match(await redroidPage.locator('#installed-apps').innerText(), /No installed apps match this filter/);
+  assert.match(await redroidPage.locator('#installed-apps').innerText(), /No launchable apps match this filter/);
   await redroidPage.locator('#app-filter').fill('');
   assert.equal(await redroidPage.locator('#favorites-toggle').isEnabled(), true);
   await redroidPage.locator('.rt-app-row').filter({ hasText: 'com.example.tv' }).locator('.rt-app-favorite').click();

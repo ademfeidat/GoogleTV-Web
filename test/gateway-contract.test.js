@@ -233,10 +233,10 @@ test("launcher parser accepts Android component and packageName output, deduplic
 });
 
 test("legacy package parser validates, deduplicates and caps pm package output", () => {
-  assert.deepEqual(parseInstalledPackages("package:com.example.tv\\npackage:com.example.tv\\npackage:org.sample.player\\npackage:bad;command\\n"), [
+  assert.deepEqual(parseInstalledPackages("package:com.example.tv\npackage:com.example.tv\npackage:org.sample.player\npackage:bad;command\n"), [
     "com.example.tv", "org.sample.player"
   ]);
-  assert.equal(parseInstalledPackages(Array.from({ length: 305 }, (_, i) => `package:com.example.app${i}`).join("\\n")).length, 300);
+  assert.equal(parseInstalledPackages(Array.from({ length: 305 }, (_, i) => `package:com.example.app${i}`).join("\n")).length, 300);
 });
 
 test("gateway validates Android package names before launch", () => {
@@ -383,7 +383,7 @@ test("gateway falls back to third-party package enumeration on older Android rel
     if (args.includes("get-state")) return { stdout: "device", stderr: "" };
     if (args.includes("query-activities")) throw new Error("Unknown command: query-activities");
     if (args.includes("pm") && args.includes("list")) {
-      return { stdout: "package:com.example.legacy\\npackage:org.sample.player\\npackage:com.example.legacy\\npackage:bad;value\\n", stderr: "" };
+      return { stdout: "package:com.example.legacy\npackage:org.sample.player\npackage:com.example.legacy\npackage:bad;value\n", stderr: "" };
     }
     return { stdout: "", stderr: "" };
   };

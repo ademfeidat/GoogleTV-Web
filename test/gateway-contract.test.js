@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { createGatewayServer, isAuthorized, mapInputAction, validatePackageName, validateTapCoordinates } from "../server/gateway/src/server.js";
+import { createGatewayServer, isAuthorized, mapInputAction, parseLauncherPackages, validatePackageName, validateTapCoordinates } from "../server/gateway/src/server.js";
 
 test("gateway maps the TV remote allowlist to Android keycodes", () => {
   assert.equal(mapInputAction("DPAD_UP"), "19");
@@ -224,6 +224,14 @@ test("gateway streams APK bytes to the ADB installer and returns its result", as
 });
 
 
+test("launcher parser accepts Android component and packageName output, deduplicates and rejects noise", () => {
+  assert.deepEqual(parseLauncherPackages(
+    "Activity #0:\ncom.example.tv/com.example.tv.MainActivity\npackageName=org.sample.player\ninvalid;package/.Main\n",
+    "com.example.tv/.MainActivity\ncom.android.tv.settings/.Settings"
+  ), ["com.android.tv.settings", "com.example.tv", "org.sample.player"]);
+  assert.equal(parseLauncherPackages(Array.from({ length: 305 }, (_, i) => `com.example.app${i}/.Main`).join("\n")).length, 300);
+});
+
 test("gateway validates Android package names before launch", () => {
   assert.equal(validatePackageName("com.example.tv"), "com.example.tv");
   assert.equal(validatePackageName("org.example_app.player2"), "org.example_app.player2");
@@ -254,7 +262,43 @@ test("gateway launches only the validated package using Android monkey", async (
     assert.deepEqual(await response.json(), {
       ok: true, packageName: "com.example.tv", output: "Events injected: 1"
     });
-    assert.ok(calls.some(args => args.slice(-5).join(" ") === "shell monkey -p com.example.tv 1"));
+    assert.ok(calls.some(args => args.slice(-7).join(" ") === "shell monkey -p com.example.tv -c android.intent.category.LAUNCHER 1"));
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});
+
+test("gateway falls back to the Android TV Leanback category when standard launch fails", async () => {
+  const calls = [];
+  const token = "test-token-with-at-least-32-characters";
+  const runAdb = async args => {
+    calls.push(args);
+    if (args.includes("get-state")) return { stdout: "device", stderr: "" };
+    if (args.includes("monkey") && args.includes("android.intent.category.LAUNCHER")) {
+      const error = new Error("No standard launcher activity");
+      error.stderr = "No activities found";
+      throw error;
+    }
+    if (args.includes("monkey") && args.includes("android.intent.category.LEANBACK_LAUNCHER")) {
+      return { stdout: "Events injected: 1", stderr: "" };
+    }
+    return { stdout: "", stderr: "" };
+  };
+  const server = createGatewayServer({ token, runAdb });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  try {
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/launch`, {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ packageName: "com.example.tv" })
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      ok: true, packageName: "com.example.tv", output: "Events injected: 1"
+    });
+    assert.equal(calls.filter(args => args.includes("monkey")).length, 2);
+    assert.ok(calls.some(args => args.includes("android.intent.category.LEANBACK_LAUNCHER")));
   } finally {
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }
@@ -280,15 +324,21 @@ test("gateway rejects shell-like package launch input without invoking ADB", asy
 });
 
 
-test("gateway lists validated third-party Android packages from the connected device", async () => {
+test("gateway lists third-party and system apps with standard or Android TV launcher activities", async () => {
   const calls = [];
   const runAdb = async args => {
     calls.push(args);
     if (args.includes("get-state")) return { stdout: "device", stderr: "" };
-    if (args.includes("pm")) return {
-      stdout: "package:com.example.tv\npackage:org.sample.player\npackage:com.example.tv\npackage:bad;command\npackage:com.valid_app.client\n",
-      stderr: ""
-    };
+    if (args.includes("query-activities")) {
+      const category = args.at(-1);
+      if (category === "android.intent.category.LEANBACK_LAUNCHER") {
+        return { stdout: "com.example.tv/com.example.tv.MainActivity\ncom.android.tv.settings/.Settings\n", stderr: "" };
+      }
+      return {
+        stdout: "packageName=org.sample.player\ncom.example.tv/com.example.tv.MainActivity\ncom.valid_app.client/.Home\nbad;command/.Main\n",
+        stderr: ""
+      };
+    }
     return { stdout: "", stderr: "" };
   };
   const token = "test-token-with-at-least-32-characters";
@@ -301,19 +351,22 @@ test("gateway lists validated third-party Android packages from the connected de
     });
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), {
-      count: 3,
+      count: 4,
       apps: [
+        { packageName: "com.android.tv.settings" },
         { packageName: "com.example.tv" },
         { packageName: "com.valid_app.client" },
         { packageName: "org.sample.player" }
       ]
     });
-    assert.ok(calls.some(args => args.slice(-4).join(" ") === "pm list packages -3"));
+    const queries = calls.filter(args => args.includes("query-activities"));
+    assert.equal(queries.length, 2);
+    assert.ok(queries.some(args => args.at(-1) === "android.intent.category.LAUNCHER"));
+    assert.ok(queries.some(args => args.at(-1) === "android.intent.category.LEANBACK_LAUNCHER"));
   } finally {
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }
 });
-
 test("gateway app list requires authentication", async () => {
   const server = createGatewayServer({ runAdb: async () => { throw new Error("ADB must not run"); } });
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));

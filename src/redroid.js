@@ -84,6 +84,7 @@ async function checkAndroid() {
     if (accessToken.length < 32) throw new Error("The gateway token must contain at least 32 characters.");
     setStatus("Checking Android through the private gateway…", "warn");
     const data = await api("/api/status");
+    try { streamUrl = normalizeEndpoint($("stream-url").value, "Streaming URL"); } catch { streamUrl = ""; }
     $("android-release").textContent = data.androidRelease || "Unknown";
     $("android-model").textContent = data.model || "Unknown";
     $("boot-state").textContent = data.bootCompleted ? "Yes" : "Waiting";

@@ -1,7 +1,7 @@
 name: CI
 on:
   push:
-    branches: [main]
+    branches: [main, redroid-migration]
   pull_request:
     branches: [main]
 jobs:
@@ -20,3 +20,7 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run browser smoke test
         run: npm run test:browser
+      - name: Check Redroid host preflight script syntax
+        run: bash -n scripts/redroid-host-preflight.sh
+      - name: Validate Redroid Compose configuration
+        run: docker compose --env-file deploy/redroid/.env.example -f deploy/redroid/docker-compose.yml config --quiet

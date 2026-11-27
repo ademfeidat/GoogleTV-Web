@@ -84,6 +84,8 @@ All gateway API routes require `Authorization: Bearer <GATEWAY_TOKEN>`.
 
 - `GET http://127.0.0.1:8080/healthz` — process health only.
 - `GET http://127.0.0.1:8080/api/status` — Android ADB state, boot-complete flag, release and model.
+- `GET http://127.0.0.1:8080/api/apps` — apps with a standard `LAUNCHER` or TV `LEANBACK_LAUNCHER` activity, including system apps. Results are package IDs only; localized labels and icons are not yet extracted.
+- `POST http://127.0.0.1:8080/api/launch` — launch a validated package using the standard category, then fall back to the TV Leanback category.
 - `POST http://127.0.0.1:8080/api/input` — allowlisted TV remote key or bounded tap.
 - `POST http://127.0.0.1:8080/api/apk` — raw APK upload and `adb install -r`; maximum 512 MiB.
 

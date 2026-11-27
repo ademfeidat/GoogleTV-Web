@@ -30,6 +30,7 @@ jobs:
           bash -n scripts/redroid-host-preflight.sh
           bash -n scripts/redroid-runtime-check.sh
           bash -n scripts/redroid-data.sh
+          bash -n scripts/redroid-stream-preflight.sh
           bash scripts/redroid-data.sh --help
       - name: Validate Redroid Compose configuration
         run: |

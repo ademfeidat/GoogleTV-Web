@@ -36,7 +36,7 @@ root.innerHTML = `
     <section class="rt-panel">
       <section class="rt-tv-home" aria-label="Android TV home launcher">
         <div class="rt-home-heading"><div><p class="rt-eyebrow">ANDROID TV</p><h2>Home</h2></div><span id="home-app-count" class="rt-muted">No apps loaded</span></div>
-        <div class="rt-home-feature"><div><span class="rt-home-pill">YOUR ANDROID</span><h3>Apps, ready for the big screen.</h3><p>Apps with a standard or Android TV launcher activity appear here. Package IDs are shown until Android label and icon metadata is integrated.</p></div><div class="rt-home-mark" aria-hidden="true">▶</div></div>
+        <div class="rt-home-feature"><div><span class="rt-home-pill">YOUR ANDROID</span><h3>Apps, ready for the big screen.</h3><p>Apps with launcher metadata appear here. Older Android versions may show all user-installed package IDs instead. Labels and icons are not yet extracted.</p></div><div class="rt-home-mark" aria-hidden="true">▶</div></div>
         <h3 class="rt-home-section-title">Recently opened</h3>
         <div class="rt-home-grid" id="home-recent" aria-label="Recently opened apps"><p class="rt-home-empty">Apps you launch will appear here.</p></div>
         <h3 class="rt-home-section-title">Favorites</h3>
@@ -285,7 +285,7 @@ async function refreshApps() {
     saveRecentPackages();
     renderHomeApps();
     $("home-status").textContent = "Apps loaded from Android. Select an app tile to launch it.";
-    setAppsStatus((result.count || 0) + " launchable app(s) found.", "ok");
+    setAppsStatus(result.discovery === "legacy-packages"\n      ? (result.count || 0) + " installed package(s) found; some may not be launchable."\n      : (result.count || 0) + " launchable app(s) found.", "ok");
   } catch (error) {
     setAppsStatus(error.message, "error");
   } finally {
@@ -373,7 +373,7 @@ $("disconnect").addEventListener("click", () => {
   $("stream-state").textContent = "Stream not started";
   setStatus("Credentials cleared from this page's memory.");
   setApkStatus("Connect to Android before installing an APK.");
-  setAppsStatus("Connect to Android to discover installed user apps.");
+  setAppsStatus("Connect to Android to discover apps.");
   $("installed-apps").replaceChildren();
 });
 $("stream-url").addEventListener("input", () => {

@@ -75,4 +75,4 @@ Android's data partition is stored in the named Docker volume `redroid-data`. Th
 
 ## Current limitation
 
-The gateway provides authenticated status, allowlisted input and APK installation endpoints. The optional streaming sidecar is wired into Compose but has not yet been connected to a live Redroid instance or embedded into the GoogleTV-Web UI. A successful CI run validates code and Compose syntax; it does not prove Android boot or live streaming.
+The gateway provides authenticated status, allowlisted input and APK installation endpoints. The `/redroid.html` dashboard connects to that gateway and embeds the ws-scrcpy-web `/embed.html?device=` route. The optional streaming sidecar is wired into Compose, but no real Redroid instance has been booted or streamed in this project environment. A successful CI run validates code and Compose syntax; it does not prove Android boot or live streaming.

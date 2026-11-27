@@ -80,6 +80,17 @@ try {
   assert.equal(await redroidPage.locator('#android-release').innerText(), '14');
   assert.equal(await redroidPage.locator('#open-stream').isEnabled(), true);
   assert.equal(await redroidPage.locator('[data-key="DPAD_UP"]').isEnabled(), true);
+  assert.equal(await redroidPage.locator('#refresh-apps').isEnabled(), true);
+  await redroidPage.route(`${origin}/api/apps`, route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ count: 2, apps: [{ packageName: 'com.example.tv' }, { packageName: 'org.sample.player' }] })
+  }));
+  await redroidPage.locator('#refresh-apps').click();
+  await redroidPage.waitForFunction(() => document.querySelector('#apps-status')?.textContent.includes('2 installed user app'));
+  assert.equal(await redroidPage.locator('#installed-apps .rt-app-item').count(), 2);
+  await redroidPage.locator('#installed-apps .rt-app-item').filter({ hasText: 'com.example.tv' }).click();
+  assert.equal(await redroidPage.locator('#package-name').inputValue(), 'com.example.tv');
   await redroidPage.locator('#package-name').fill('com.example.tv');
   assert.equal(await redroidPage.locator('#launch-app').isEnabled(), true);
   let launchPayload;

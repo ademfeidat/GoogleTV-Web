@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.5 — Chromium browser smoke test
+- Added a headless Chromium smoke test against the built production app.
+- Verified page initialization, initial control states, RAM selector-to-diagnostics wiring and required-file selection enabling the Start control.
+- Added Chromium installation and browser smoke execution to GitHub Actions CI.
+- The smoke test deliberately does not start v86 with placeholder firmware or claim an Android guest boot.
+
 ## 0.9.4 — Emulator lifecycle test coverage
 - Extracted the emulator-ready wait logic into a small lifecycle utility with injectable timeout functions.
 - Added mock-v86 tests for normal readiness, already-ready state, the listener-registration race, timeout rejection and listener cleanup.

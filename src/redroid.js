@@ -343,8 +343,9 @@ function openStream(newTab = false) {
   try {
     const url = currentStreamUrl();
     if (newTab) {
-      const opened = window.open(url, "_blank", "noopener,noreferrer");
+      const opened = window.open(url, "_blank");
       if (!opened) throw new Error("The browser blocked the streaming tab. Allow pop-ups and try again.");
+      opened.opener = null;
     }
     else {
       const frame = document.createElement("iframe");

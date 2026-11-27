@@ -38,8 +38,28 @@ services:
     networks:
       - android-private
 
+  stream:
+    image: ${WS_SCRCPY_IMAGE:-bilbospocketses/ws-scrcpy-web:0.5.13}
+    container_name: googletv-ws-scrcpy
+    restart: unless-stopped
+    profiles:
+      - streaming
+    environment:
+      WS_SCRCPY_ALLOW_REMOTE_ADMIN: ${WS_SCRCPY_ALLOW_REMOTE_ADMIN:-0}
+    volumes:
+      - ws-scrcpy-data:/data
+    depends_on:
+      - redroid
+    expose:
+      - "8000"
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks:
+      - android-private
+
 volumes:
   redroid-data:
+  ws-scrcpy-data:
 
 networks:
   android-private:

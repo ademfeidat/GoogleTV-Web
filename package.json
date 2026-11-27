@@ -7,7 +7,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build && node scripts/check-build.mjs",
     "preview": "vite preview --host 0.0.0.0",
-    "check": "node --check src/main.js",
+    "check": "node --check src/main.js && node --check src/redroid.js && node --check src/redroid-client.js && node --check server/gateway/src/server.js",
     "postinstall": "node scripts/copy-v86-assets.mjs",
     "test": "node --test",
     "test:browser": "node scripts/browser-smoke.mjs"

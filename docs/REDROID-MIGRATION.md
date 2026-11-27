@@ -2,62 +2,60 @@
 
 ## Decision
 
-Replace the browser-hosted v86 x86 emulator with a server-hosted Android runtime based on redroid. The browser remains the presentation and control client; Android runs as a Linux container on a compatible Linux host.
-
-Target architecture:
+Replace the browser-hosted v86 x86 emulator with a server-hosted Android runtime based on Redroid. The browser remains the presentation and control client; Android runs as a Linux container on a compatible Linux host.
 
 ```
 Browser (Google TV UI)
-  | HTTPS + authenticated WebSocket
+  | HTTPS + authenticated API / future WSS stream
   v
-GoogleTV gateway (session/auth/API)
+GoogleTV gateway (token auth, status, input, APK install)
   | private Docker network
-  +--> redroid container (Android userspace + host Linux kernel)
-  +--> scrcpy/ADB bridge (video, input, APK install, file operations)
+  +--> Redroid container (Android userspace + host Linux kernel)
+  +--> ADB bridge (private)
   |
   +--> persistent /data volume
 ```
 
-The browser must never connect directly to an unauthenticated ADB port. ADB and scrcpy control endpoints stay on loopback or a private container network.
+The browser must never connect directly to an unauthenticated ADB port.
 
 ## Technical facts and constraints
 
-- redroid is Android-in-Cloud, not an in-browser emulator. It runs in Docker/Podman/Kubernetes on a Linux host and supports amd64 and arm64 images.
-- The host kernel must provide the Android binder driver (binderfs or binder_linux with binder, hwbinder and vndbinder devices). Depending on the kernel/image combination, ashmem compatibility or memfd support may also matter. Do not assume that `modprobe ashmem_linux` is available on every modern distribution.
+- Redroid is Android-in-Cloud, not an in-browser emulator. It runs in Docker/Podman/Kubernetes on a Linux host and supports amd64 and arm64.
+- The host kernel must provide the Android binder driver (binderfs or binder_linux with binder, hwbinder and vndbinder devices). Depending on the kernel/image combination, ashmem compatibility or memfd support may also matter.
 - The documented quick start uses a privileged container. Treat this as a significant host-security boundary; isolate the host and container, avoid mounting unrelated host paths, and do not expose ADB publicly.
-- redroid images are not Google-certified Android TV images. They provide Android userspace in a container; TV launcher, TV input behavior, Google Mobile Services, Play certification, Widevine/DRM and app compatibility must each be tested separately.
+- Redroid images are not Google-certified Android TV images. Android userspace, TV launcher, TV input behavior, Google Mobile Services, Play certification, Widevine/DRM and app compatibility must each be tested separately.
 - ARM app compatibility depends on the selected image and native-bridge libraries. It is not a guarantee that every ARM-only APK works.
-- GPU acceleration depends on the host GPU, driver, device nodes and redroid configuration. CPU/container execution alone does not guarantee native GPU performance.
+- GPU acceleration depends on the host GPU, driver, device nodes and Redroid configuration. CPU/container execution alone does not guarantee native GPU performance.
 - A public static host such as Vercel cannot run this privileged Android container. The web UI can be hosted separately, but the runtime needs a compatible Linux server or a home-hosted machine with secure connectivity.
 - Free cloud compute is not guaranteed. The project must support self-hosting first and document any free-tier limitations honestly.
 
 ## Components
 
 ### 1. Android runtime
-- Use the official `redroid/redroid` images.
-- Begin with an Android 14 baseline for the first integration test; evaluate Android 16 after the basic lifecycle and streaming path works.
+- Use official `redroid/redroid` images.
+- Begin with Android 14 for the first integration test; evaluate newer supported images after lifecycle and streaming work.
 - Persist `/data` in a dedicated Docker volume or host directory.
 - Configure display size and DPI for a landscape TV experience.
-- Keep the ADB port private. For local maintenance only, bind it to 127.0.0.1.
+- Keep ADB private. For local maintenance only, bind it to 127.0.0.1.
 
-### 2. Screen streaming and input
-- Evaluate NetrisTV/ws-scrcpy as a browser client and protocol reference.
-- The browser needs WebSocket transport and a supported H.264 decoding path; WebCodecs availability differs by browser.
-- The upstream ws-scrcpy documentation describes file push, remote shell and input, but also warns that its default deployment lacks authentication and transport encryption. It must sit behind an authenticated HTTPS/WSS gateway and must not be exposed directly.
+### 2. Gateway and Android control
+- The first gateway implementation is in `server/gateway`.
+- It uses ADB over the private Docker network and exposes only status, an allowlisted remote-input API and APK installation.
+- APK uploads are streamed to a temporary directory, capped at 512 MiB, installed with `adb install -r`, then removed.
+- No arbitrary shell endpoint is exposed.
+- The initial bearer token is a single-user proof-of-concept credential, not a production multi-user identity system.
+
+### 3. Screen streaming
+- Evaluate NetrisTV/ws-scrcpy and maintained descendants as browser clients and protocol references.
+- The browser needs WebSocket transport and a supported H.264 decoding path; WebCodecs availability differs by browser and requires a secure context in modern implementations.
+- Upstream ws-scrcpy documentation describes remote input, file push and shell access, but warns that its default deployment lacks authentication and transport encryption. Put it behind an authenticated HTTPS/WSS gateway; never expose it directly.
 - If the upstream fork or protocol is unsuitable, use vanilla scrcpy with an ADB tunnel and implement a narrow authenticated WebSocket gateway. Do not fork or vendor the entire stack before the proof of concept.
-
-### 3. APK installation and file management
-- Upload APK through the authenticated gateway.
-- Store it in a temporary server-side upload directory with size limits and safe filenames.
-- Install using an internal ADB command (for example, `adb install`) after validating the active session.
-- Return install output and progress to the browser.
-- Do not expose a general-purpose shell to unauthenticated users.
 
 ### 4. Browser interface
 - Keep the Google TV visual identity and responsive layout.
 - Replace ISO/BIOS/RAM selection with runtime status, Start/Stop/Restart, stream viewport, TV remote, APK upload, storage status and connection diagnostics.
 - Use a remote-friendly D-pad (Up/Down/Left/Right/OK/Back/Home) and touch/mouse input.
-- Use the browser only as a thin client; Android state lives on the server.
+- The browser is a thin client; Android state lives on the server.
 
 ### 5. Persistence
 - Store Android `/data` on a persistent volume.
@@ -75,31 +73,35 @@ The browser must never connect directly to an unauthenticated ADB port. ADB and 
 
 ## Migration sequence
 
-1. Preserve the current v0.9.5 implementation on `main`; perform the replacement on the `redroid-migration` branch.
+1. Preserve the v0.9.5 v86 implementation on `main`; perform replacement work on `redroid-migration`.
 2. Add a reproducible Redroid deployment profile and host preflight documentation.
-3. Prove that a compatible Linux host can start the Redroid container and that ADB can see Android.
-4. Prove screen capture and remote input from the server using scrcpy.
-5. Add the authenticated gateway and browser WebSocket streaming.
-6. Add APK upload and installation via ADB.
-7. Add persistent /data storage and backup/restore.
+3. Prove that a compatible Linux host can start Redroid and ADB can see Android.
+4. Add the authenticated gateway for status, remote input and APK installation.
+5. Prove screen capture and remote input from the server using scrcpy.
+6. Add authenticated browser WebSocket streaming.
+7. Add persistent `/data` backup/restore and lifecycle controls.
 8. Rebuild the Google TV browser UI around the new runtime.
-9. Add automated API, auth, upload, and browser tests; add a manual Android boot/stream test.
-10. Remove v86, ISO/BIOS selection, IndexedDB VM snapshots and 9p code only after the Redroid path passes its acceptance tests.
+9. Add automated API, auth, upload and browser tests plus a manual Android boot/stream test.
+10. Remove v86, ISO/BIOS selection, IndexedDB VM snapshots and 9p code only after Redroid acceptance tests pass.
 11. Publish deployment instructions and a stable release.
 
 ## Acceptance criteria
 
 - A clean supported Linux host passes a documented kernel preflight.
-- Redroid container reaches Android boot-complete and ADB reports device state `device`.
+- Redroid reaches Android boot-complete and ADB reports device state `device`.
 - Browser receives a live screen stream over WSS.
 - D-pad, Back, Home, touch and keyboard events reach Android.
-- An uploaded APK installs through ADB and launches.
+- An uploaded APK installs and launches.
 - Android app/data state survives container restart.
 - A backup can be restored to a fresh deployment.
 - ADB is not reachable from the public internet.
 - Unauthenticated users cannot view or control a session.
-- CI validates the frontend, gateway and deployment configuration; real Android runtime tests are reported separately from mock tests.
+- CI validates frontend, gateway and deployment configuration; real Android runtime tests are reported separately from mock tests.
 
 ## Current status
 
-This branch starts the migration design and deployment scaffold. It does not yet include a running Redroid host, a working browser stream, a gateway, or a verified Android boot. Those require a compatible Linux host for integration testing.
+- Added Redroid Docker Compose profile with persistent `/data` and loopback-only ADB.
+- Added a read-only host preflight script.
+- Added an authenticated gateway with status, allowlisted remote input and APK install endpoints.
+- CI validates gateway syntax, unit contracts, browser smoke tests and Compose configuration.
+- Not yet implemented: actual Redroid host boot test, scrcpy video stream, WSS proxy, browser integration, production user authentication and automated persistence/restore tests.

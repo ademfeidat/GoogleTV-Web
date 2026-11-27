@@ -42,6 +42,36 @@ def audit_compose(config: dict[str, Any]) -> list[str]:
                     f"{host_ip or 'all interfaces'} (host port {published}); bind to loopback"
                 )
 
+    required = {name: services.get(name) for name in ("redroid", "gateway", "stream")}
+    for name, service in required.items():
+        if not isinstance(service, dict):
+            continue
+        networks = service.get("networks") or {}
+        if isinstance(networks, list):
+            network_names = set(networks)
+        elif isinstance(networks, dict):
+            network_names = set(networks)
+        else:
+            network_names = set()
+        if "android-private" not in network_names:
+            errors.append(f"{name} must join the android-private network")
+
+    redroid = required.get("redroid")
+    if isinstance(redroid, dict) and redroid.get("privileged") is not True:
+        errors.append("redroid must run privileged for the Android kernel interfaces")
+    for name in ("gateway", "stream"):
+        service = required.get(name)
+        if isinstance(service, dict) and service.get("privileged") is True:
+            errors.append(f"{name} must not run privileged")
+
+    gateway = required.get("gateway")
+    if isinstance(gateway, dict):
+        environment = gateway.get("environment") or {}
+        if isinstance(environment, list):
+            environment = dict(item.split("=", 1) for item in environment if "=" in item)
+        if not environment.get("GATEWAY_TOKEN"):
+            errors.append("gateway must have a non-empty GATEWAY_TOKEN")
+
     stream = services.get("stream")
     if isinstance(stream, dict):
         profiles = stream.get("profiles") or []
@@ -75,7 +105,7 @@ def main() -> int:
         for error in errors:
             print(f"[FAIL] {error}", file=sys.stderr)
         return 1
-    print("[PASS] Required services, loopback-only published ports, and streaming admin defaults are safe.")
+    print("[PASS] Private network membership, least-privilege services, gateway token, loopback-only ports, and streaming admin defaults are safe.")
     print("[INFO] This audit validates configuration only; it does not prove runtime or stream readiness.")
     return 0
 

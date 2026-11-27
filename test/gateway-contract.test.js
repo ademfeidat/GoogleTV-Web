@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isAuthorized, mapInputAction, validateTapCoordinates } from "../server/gateway/src/server.js";
+import { createGatewayServer, isAuthorized, mapInputAction, validateTapCoordinates } from "../server/gateway/src/server.js";
 
 test("gateway maps the TV remote allowlist to Android keycodes", () => {
   assert.equal(mapInputAction("DPAD_UP"), "19");
@@ -32,7 +32,6 @@ test("gateway bearer authentication compares the complete token", () => {
   assert.equal(isAuthorized("Bearer abc123", ""), false);
 });
 
-import { createGatewayServer } from "../server/gateway/src/server.js";
 
 test("gateway health endpoint is public but reveals no Android details", async () => {
   const server = createGatewayServer();
@@ -63,15 +62,45 @@ test("gateway rejects API access without bearer authentication", async () => {
 });
 
 test("gateway rejects unknown API routes without invoking Android commands", async () => {
-  const server = createGatewayServer();
+  const server = createGatewayServer({ token: "test-token-with-at-least-32-characters" });
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   try {
     const response = await fetch(`http://127.0.0.1:${address.port}/api/not-a-route`, {
-      headers: { Authorization: "Bearer test-token" }
+      headers: { Authorization: "Bearer test-token-with-at-least-32-characters" }
     });
     assert.equal(response.status, 404);
     assert.deepEqual(await response.json(), { error: "Not found" });
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});
+
+test("gateway CORS allows only the configured exact origin", async () => {
+  const server = createGatewayServer({
+    token: "test-token-with-at-least-32-characters",
+    allowedOrigin: "https://tv.example.test"
+  });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  try {
+    const allowed = await fetch(`http://127.0.0.1:${address.port}/api/not-a-route`, {
+      headers: {
+        Origin: "https://tv.example.test",
+        Authorization: "Bearer test-token-with-at-least-32-characters"
+      }
+    });
+    assert.equal(allowed.status, 404);
+    assert.equal(allowed.headers.get("access-control-allow-origin"), "https://tv.example.test");
+
+    const denied = await fetch(`http://127.0.0.1:${address.port}/api/not-a-route`, {
+      headers: {
+        Origin: "https://attacker.example.test",
+        Authorization: "Bearer test-token-with-at-least-32-characters"
+      }
+    });
+    assert.equal(denied.status, 403);
+    assert.equal(denied.headers.get("access-control-allow-origin"), null);
   } finally {
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }

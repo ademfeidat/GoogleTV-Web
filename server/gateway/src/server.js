@@ -92,10 +92,10 @@ async function adb(args, timeout = 20_000) {
   return execFileAsync("adb", args, { timeout, maxBuffer: 1024 * 1024, windowsHide: true });
 }
 
-async function ensureDevice() {
-  await adb(["connect", SERIAL], 15_000);
-  await adb(["-s", SERIAL, "wait-for-device"], 15_000);
-  const { stdout } = await adb(["-s", SERIAL, "get-state"], 10_000);
+async function ensureDevice(runAdb = adb) {
+  await runAdb(["connect", SERIAL], 15_000);
+  await runAdb(["-s", SERIAL, "wait-for-device"], 15_000);
+  const { stdout } = await runAdb(["-s", SERIAL, "get-state"], 10_000);
   if (stdout.trim() !== "device") throw new Error("Android device is not ready");
 }
 
@@ -131,8 +131,8 @@ async function installApk(req, res, headers, runAdb = adb) {
       }
     }), createWriteStream(apkPath, { flags: "wx", mode: 0o600 }));
     if (total === 0) return json(res, 400, { error: "APK body is empty" }, headers);
-    await ensureDevice();
-    const { stdout, stderr } = await adb(["-s", SERIAL, "install", "-r", apkPath], 180_000);
+    await ensureDevice(runAdb);
+    const { stdout, stderr } = await runAdb(["-s", SERIAL, "install", "-r", apkPath], 180_000);
     return json(res, 200, { ok: true, output: (stdout + stderr).trim() }, headers);
   } catch (error) {
     const status = error.statusCode || 502;

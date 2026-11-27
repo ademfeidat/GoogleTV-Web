@@ -1,3 +1,5 @@
+> **Redroid migration branch:** This branch is transitioning the runtime from browser-side v86 to server-side Redroid. The current browser app is still the v0.9.5 v86 implementation; Redroid deployment files and the migration design are scaffolding only. No working Android stream or authenticated gateway is claimed yet. See [docs/REDROID-MIGRATION.md](docs/REDROID-MIGRATION.md) and [deploy/redroid/README.md](deploy/redroid/README.md).
+
 # GoogleTV-Web
 
 Experimental x86 virtual machine launcher for running a compatible Android-x86 / Android TV ISO inside a browser tab.

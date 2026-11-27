@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { createGatewayServer, isAuthorized, mapInputAction, parseLauncherPackages, validatePackageName, validateTapCoordinates } from "../server/gateway/src/server.js";
+import { createGatewayServer, isAuthorized, mapInputAction, parseInstalledPackages, parseLauncherPackages, validatePackageName, validateTapCoordinates } from "../server/gateway/src/server.js";
 
 test("gateway maps the TV remote allowlist to Android keycodes", () => {
   assert.equal(mapInputAction("DPAD_UP"), "19");
@@ -232,6 +232,13 @@ test("launcher parser accepts Android component and packageName output, deduplic
   assert.equal(parseLauncherPackages(Array.from({ length: 305 }, (_, i) => `com.example.app${i}/.Main`).join("\n")).length, 300);
 });
 
+test("legacy package parser validates, deduplicates and caps pm package output", () => {
+  assert.deepEqual(parseInstalledPackages("package:com.example.tv\\npackage:com.example.tv\\npackage:org.sample.player\\npackage:bad;command\\n"), [
+    "com.example.tv", "org.sample.player"
+  ]);
+  assert.equal(parseInstalledPackages(Array.from({ length: 305 }, (_, i) => `package:com.example.app${i}`).join("\\n")).length, 300);
+});
+
 test("gateway validates Android package names before launch", () => {
   assert.equal(validatePackageName("com.example.tv"), "com.example.tv");
   assert.equal(validatePackageName("org.example_app.player2"), "org.example_app.player2");
@@ -357,7 +364,8 @@ test("gateway lists third-party and system apps with standard or Android TV laun
         { packageName: "com.example.tv" },
         { packageName: "com.valid_app.client" },
         { packageName: "org.sample.player" }
-      ]
+      ],
+      discovery: "launcher"
     });
     const queries = calls.filter(args => args.includes("query-activities"));
     assert.equal(queries.length, 2);
@@ -367,6 +375,37 @@ test("gateway lists third-party and system apps with standard or Android TV laun
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }
 });
+test("gateway falls back to third-party package enumeration on older Android releases", async () => {
+  const calls = [];
+  const token = "test-token-with-at-least-32-characters";
+  const runAdb = async args => {
+    calls.push(args);
+    if (args.includes("get-state")) return { stdout: "device", stderr: "" };
+    if (args.includes("query-activities")) throw new Error("Unknown command: query-activities");
+    if (args.includes("pm") && args.includes("list")) {
+      return { stdout: "package:com.example.legacy\\npackage:org.sample.player\\npackage:com.example.legacy\\npackage:bad;value\\n", stderr: "" };
+    }
+    return { stdout: "", stderr: "" };
+  };
+  const server = createGatewayServer({ token, runAdb });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  try {
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/apps`, {
+      headers: { Authorization: "Bearer " + token }
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      count: 2,
+      apps: [{ packageName: "com.example.legacy" }, { packageName: "org.sample.player" }],
+      discovery: "legacy-packages"
+    });
+    assert.ok(calls.some(args => args.includes("pm") && args.includes("list") && args.includes("packages")));
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});
+
 test("gateway app list requires authentication", async () => {
   const server = createGatewayServer({ runAdb: async () => { throw new Error("ADB must not run"); } });
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));

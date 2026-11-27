@@ -47,6 +47,21 @@ export function validatePackageName(value) {
   return value;
 }
 
+export function parseLauncherPackages(...outputs) {
+  const packages = new Set();
+  for (const output of outputs) {
+    for (const line of String(output || "").split(/\r?\n/)) {
+      const value = line.trim();
+      const named = value.match(/^packageName=(.+)$/);
+      const component = value.match(/^([A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+)\/[A-Za-z_$][A-Za-z0-9_.$]*$/);
+      const packageName = named?.[1]?.trim() || component?.[1] || "";
+      if (!packageName) continue;
+      try { validatePackageName(packageName); packages.add(packageName); } catch { /* Ignore non-package output. */ }
+    }
+  }
+  return [...packages].sort((a, b) => a.localeCompare(b)).slice(0, 300);
+}
+
 export function isAuthorized(header, expectedToken = TOKEN) {
   if (!expectedToken || typeof header !== "string" || !header.startsWith("Bearer ")) return false;
   const supplied = Buffer.from(header.slice(7));
@@ -184,14 +199,12 @@ async function handle(req, res, { token = TOKEN, allowedOrigin = ALLOWED_ORIGIN,
   if (req.method === "GET" && req.url === "/api/apps") {
     try {
       await ensureDevice(runAdb);
-      const { stdout } = await runAdb(["-s", SERIAL, "shell", "pm", "list", "packages", "-3"], 30_000);
-      const packages = [...new Set(stdout.split(/\r?\n/)
-        .map(line => line.trim())
-        .filter(line => line.startsWith("package:"))
-        .map(line => line.slice("package:".length))
-        .filter(name => {
-          try { validatePackageName(name); return true; } catch { return false; }
-        }))].sort((a, b) => a.localeCompare(b)).slice(0, 300);
+      const categories = ["android.intent.category.LAUNCHER", "android.intent.category.LEANBACK_LAUNCHER"];
+      const results = await Promise.all(categories.map(category => runAdb([
+        "-s", SERIAL, "shell", "cmd", "package", "query-activities", "--brief",
+        "-a", "android.intent.action.MAIN", "-c", category
+      ], 30_000)));
+      const packages = parseLauncherPackages(...results.map(result => result.stdout));
       return json(res, 200, { apps: packages.map(packageName => ({ packageName })), count: packages.length }, headers);
     } catch (error) {
       return json(res, 502, {
@@ -227,10 +240,24 @@ async function handle(req, res, { token = TOKEN, allowedOrigin = ALLOWED_ORIGIN,
     }
     try {
       await ensureDevice(runAdb);
-      const { stdout, stderr } = await runAdb([
-        "-s", SERIAL, "shell", "monkey", "-p", packageName, "1"
-      ], 30_000);
-      return json(res, 200, { ok: true, packageName, output: (stdout + stderr).trim() }, headers);
+      let result;
+      try {
+        result = await runAdb([
+          "-s", SERIAL, "shell", "monkey", "-p", packageName,
+          "-c", "android.intent.category.LAUNCHER", "1"
+        ], 30_000);
+      } catch (launcherError) {
+        try {
+          result = await runAdb([
+            "-s", SERIAL, "shell", "monkey", "-p", packageName,
+            "-c", "android.intent.category.LEANBACK_LAUNCHER", "1"
+          ], 30_000);
+        } catch (leanbackError) {
+          leanbackError.message = leanbackError.stderr || leanbackError.message || launcherError.message;
+          throw leanbackError;
+        }
+      }
+      return json(res, 200, { ok: true, packageName, output: (result.stdout + result.stderr).trim() }, headers);
     } catch (error) {
       return json(res, 502, {
         error: "Application launch failed",

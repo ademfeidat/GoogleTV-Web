@@ -130,7 +130,8 @@ def inspect_android(
     sleep: Callable[[float], None] = time.sleep,
 ) -> list[Check]:
     if not shutil.which("adb"):
-        return [Check("adb", "WARN", "ADB CLI not found; Android runtime state was not checked")]
+        status = "FAIL" if wait_seconds else "WARN"
+        return [Check("adb", status, "ADB CLI not found; Android runtime state was not checked")]
 
     deadline = time.monotonic() + wait_seconds
     last_state = "missing"

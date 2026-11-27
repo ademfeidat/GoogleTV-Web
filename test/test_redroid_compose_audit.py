@@ -6,8 +6,8 @@ from scripts.redroid_compose_audit import audit_compose
 def valid_config():
     return {
         "services": {
-            "redroid": {"ports": [{"host_ip": "127.0.0.1", "published": "5555", "target": 5555}]},
-            "gateway": {"ports": [{"host_ip": "127.0.0.1", "published": "8080", "target": 8080}]},
+            "redroid": {"privileged": True, "networks": ["android-private"], "ports": [{"host_ip": "127.0.0.1", "published": "5555", "target": 5555}]},
+            "gateway": {"environment": {"GATEWAY_TOKEN": "x" * 40}, "networks": ["android-private"], "ports": [{"host_ip": "127.0.0.1", "published": "8080", "target": 8080}]},
             "stream": {
                 "profiles": ["streaming"],
                 "environment": {"WS_SCRCPY_ALLOW_REMOTE_ADMIN": "0"},

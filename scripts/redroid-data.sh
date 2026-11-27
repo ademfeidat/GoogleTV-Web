@@ -5,7 +5,6 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_FILE="$ROOT_DIR/deploy/redroid/docker-compose.yml"
 PROJECT_DIR="$ROOT_DIR"
 SERVICE="redroid"
-VOLUME_DEST="/data"
 HELPER_IMAGE="${REDROID_BACKUP_HELPER_IMAGE:-alpine:3.20}"
 
 usage() {
@@ -61,7 +60,8 @@ case "${1:-}" in
     docker run --rm --network none \
       --mount "type=volume,src=$volume_name,dst=/data,readonly" \
       --mount "type=bind,src=$backup_dir,dst=/backup" \
-      "$HELPER_IMAGE" sh -ec 'tar -czf "/backup/'"$(basename "$archive")"'" -C /data .'
+      -e "BACKUP_ARCHIVE=$(basename "$archive")" \
+      "$HELPER_IMAGE" sh -ec 'tar -czf "/backup/$BACKUP_ARCHIVE" -C /data .'
     info "Backup created. Store a copy outside this host."
     printf '%s\n' "$archive"
     ;;
@@ -79,8 +79,9 @@ case "${1:-}" in
     # Reject absolute paths and parent traversal before extracting an archive.
     docker run --rm --network none \
       --mount "type=bind,src=$archive_dir,dst=/backup,readonly" \
+      -e "BACKUP_ARCHIVE=$archive_name" \
       "$HELPER_IMAGE" sh -ec '
-        archive="/backup/'"$archive_name"'"
+        archive="/backup/$BACKUP_ARCHIVE"
         tar -tzf "$archive" >/dev/null
         tar -tzf "$archive" | awk '\''BEGIN { bad=0 } /^\// { bad=1 } { n=split($0,a,"/"); for (i=1;i<=n;i++) if (a[i]=="..") bad=1 } END { exit bad }'\'' ||
           { echo "Unsafe archive path detected" >&2; exit 1; }
@@ -95,9 +96,10 @@ case "${1:-}" in
     docker run --rm --network none \
       --mount "type=volume,src=$volume_name,dst=/data" \
       --mount "type=bind,src=$archive_dir,dst=/backup,readonly" \
+      -e "BACKUP_ARCHIVE=$archive_name" \
       "$HELPER_IMAGE" sh -ec '
         find /data -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-        tar -xzf "/backup/'"$archive_name"'" -C /data
+        tar -xzf "/backup/$BACKUP_ARCHIVE" -C /data
       '
     info "Restore completed. Redroid will be restarted if it was running before."
     ;;

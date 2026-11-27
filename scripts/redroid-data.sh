@@ -23,6 +23,11 @@ USAGE
 fail() { printf '[FAIL] %s\n' "$*" >&2; exit 1; }
 info() { printf '[INFO] %s\n' "$*"; }
 
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" || -z "${1:-}" ]]; then
+  usage
+  exit 0
+fi
+
 command -v docker >/dev/null 2>&1 || fail "Docker CLI is required."
 docker info >/dev/null 2>&1 || fail "Docker daemon is unavailable."
 docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 is required."

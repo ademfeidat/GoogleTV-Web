@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { createGatewayServer, isAuthorized, mapInputAction, validateTapCoordinates } from "../server/gateway/src/server.js";
 
 test("gateway maps the TV remote allowlist to Android keycodes", () => {
@@ -182,6 +183,41 @@ test("gateway remote input sends only the mapped Android keycode", async () => {
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { ok: true });
     assert.ok(calls.some(args => args.slice(-3).join(" ") === "input keyevent 23"));
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});
+
+
+test("gateway streams APK bytes to the ADB installer and returns its result", async () => {
+  const calls = [];
+  const apkBytes = Buffer.from("mock-apk-binary");
+  const runAdb = async args => {
+    calls.push(args);
+    if (args.includes("get-state")) return { stdout: "device", stderr: "" };
+    if (args.includes("install")) {
+      const installedBytes = await readFile(args.at(-1));
+      assert.deepEqual(installedBytes, apkBytes);
+      return { stdout: "Success", stderr: "" };
+    }
+    return { stdout: "", stderr: "" };
+  };
+  const token = "test-token-with-at-least-32-characters";
+  const server = createGatewayServer({ token, runAdb });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  try {
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/apk`, {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/vnd.android.package-archive"
+      },
+      body: apkBytes
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { ok: true, output: "Success" });
+    assert.ok(calls.some(args => args.includes("install") && args.includes("-r")));
   } finally {
     await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }

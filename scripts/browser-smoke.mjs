@@ -126,6 +126,9 @@ try {
   assert.equal(await redroidPage.locator('#home-recent .rt-home-launch').count(), 1, 'Successfully launched apps should appear in Recently opened');
   assert.equal(await redroidPage.locator('#home-recent .rt-home-launch').getAttribute('data-package-name'), 'com.example.tv');
   assert.deepEqual(await redroidPage.evaluate(() => JSON.parse(localStorage.getItem('googletv.redroid.recent-packages'))), ['com.example.tv'], 'Recent history should persist package IDs only');
+  await redroidPage.locator('#home-recent .rt-home-launch').focus();
+  await redroidPage.keyboard.press('ArrowDown');
+  assert.equal(await redroidPage.evaluate(() => document.activeElement?.dataset.packageName), 'com.example.tv', 'D-pad navigation should remain stable when no tile exists below');
   let launchPayload;
   await redroidPage.route(`${origin}/api/launch`, async route => {
     launchPayload = route.request().postDataJSON();

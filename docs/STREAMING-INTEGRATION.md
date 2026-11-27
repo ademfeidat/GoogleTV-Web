@@ -47,7 +47,7 @@ The current `server/gateway` is a narrow proof-of-concept API for status, remote
 
 ## Deployment safety audit
 
-CI renders the Compose model with the optional `streaming` profile enabled and runs `scripts/redroid_compose_audit.py` against the rendered JSON. The audit fails if Redroid ADB, the gateway, or the streaming sidecar publishes a port beyond loopback, if the sidecar is no longer behind the `streaming` profile, or if remote administration is enabled by default. This is a configuration guardrail, not a runtime penetration test and not proof that sidecar login is configured.
+CI renders the Compose model with the optional `streaming` profile enabled and runs `scripts/redroid_compose_audit.py` against the rendered JSON. The audit fails if Redroid ADB, the gateway, or the streaming sidecar publishes a port beyond loopback; if any required service leaves the `android-private` network; if the gateway token is missing; if the gateway or stream sidecar is configured as privileged; if the sidecar is no longer behind the `streaming` profile; or if remote administration is enabled by default. This is a configuration guardrail, not a runtime penetration test and not proof that sidecar login is configured.
 
 Run the same audit before deployment:
 

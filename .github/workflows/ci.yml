@@ -21,9 +21,11 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run browser smoke test
         run: npm run test:browser
-      - name: Check Redroid host scripts
+      - name: Check Redroid host and data scripts
         run: |
           bash -n scripts/redroid-host-preflight.sh
           bash -n scripts/redroid-runtime-check.sh
+          bash -n scripts/redroid-data.sh
+          bash scripts/redroid-data.sh --help
       - name: Validate Redroid Compose configuration
         run: docker compose --env-file deploy/redroid/.env.example -f deploy/redroid/docker-compose.yml config --quiet

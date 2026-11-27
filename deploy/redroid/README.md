@@ -44,7 +44,7 @@ Deploy the static frontend and open `/redroid.html`. Enter the gateway base URL 
 
 ## Google TV / Google services compatibility
 
-The selected Redroid image is an Android runtime, not a pre-certified Google TV appliance image. A TV launcher APK can provide a television-style home screen, but it does not add Google Mobile Services, Play Store licensing, Play Protect certification or Widevine capabilities. Redroid documents separate GMS integration paths such as Open GApps, MicroG or MindTheGapps; compatibility and certification must be validated independently for the chosen Android release. Do not assume that installing a launcher APK alone produces a fully certified Google TV environment. See the [Redroid GMS notes](https://github.com/remote-android/redroid-doc# gms-support).
+The selected Redroid image is an Android runtime, not a pre-certified Google TV appliance image. A TV launcher APK can provide a television-style home screen, but it does not add Google Mobile Services, Play Store licensing, Play Protect certification or Widevine capabilities. Redroid documents separate GMS integration paths such as Open GApps, MicroG or MindTheGapps; compatibility and certification must be validated independently for the chosen Android release. Do not assume that installing a launcher APK alone produces a fully certified Google TV environment. See the [Redroid GMS notes](https://github.com/remote-android/redroid-doc#gms-support).
 
 ## Optional ws-scrcpy-web streaming sidecar
 

@@ -1,6 +1,7 @@
 import { V86 } from 'v86';
 import { formatBytes, planApkPaths, safeApkName, safeGuestFilePath } from './utils.js';
 import './style.css';
+import { waitForEmulatorReady } from './vm-lifecycle.js';
 
 const root = document.querySelector('#root');
 root.innerHTML = `
@@ -309,27 +310,7 @@ async function createEmulator({ autostart = true } = {}) {
   return instance;
 }
 function waitForReady(instance) {
-  if (emulatorReady) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      instance.remove_listener?.('emulator-ready', onReady);
-      resolve();
-    };
-    const onReady = () => finish();
-    const timeout = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      instance.remove_listener?.('emulator-ready', onReady);
-      reject(new Error('Emulator initialization timed out.'));
-    }, 90000);
-    instance.add_listener('emulator-ready', onReady);
-    // The event may have fired between construction and listener registration.
-    if (emulatorReady) finish();
-  });
+  return waitForEmulatorReady(instance, { isReady: () => emulatorReady });
 }
 async function startVM() {
   if (vm || starting) return;

@@ -1,61 +1,67 @@
-# Runtime hosting gate (Redroid)
+# InstaBox runtime hosting decision
 
 Last reviewed: 2026-11-28
 
-## Current deployment split
+## Provider decision
 
-- Vercel hosts the static browser client only. It does not run Docker, a privileged Android container, Binder devices, ADB, or the screen-streaming sidecar.
-- Android runs on a separate Linux host. The browser talks to the authenticated gateway and the streaming service over HTTPS/WSS.
-- A successful Vercel deployment or frontend CI run is not evidence that Android has booted.
+**Selected provider: InstaBox (instabox.sh).** This is the agreed hosting provider for GOOGLETV-WEB. Do not substitute GratisVPS, VPSFree, Oracle Cloud, or another provider unless the user explicitly changes this decision.
 
-## Non-negotiable host requirements
+Official references:
+- https://instabox.sh/
+- https://instabox.sh/docs/use-cases/android
+- https://instabox.sh/docs/access/ports
+- https://instabox.sh/docs/pricing
 
-A candidate host is not accepted until all of these are demonstrated:
+## Free machine limits to design around
 
-1. A real Linux kernel environment (not a restricted app container or static hosting service).
-2. Docker Engine and Docker Compose v2.
-3. Binder support in the host kernel and the required binder devices for the selected Redroid image. A privileged Docker container cannot manufacture a missing host Binder driver.
-4. Permission to run the Redroid container with the required privileged configuration.
-5. Persistent storage for the Android `/data` volume.
-6. Sufficient RAM, CPU and disk for the selected Android image and screen streaming; measure actual use rather than assuming a tiny free tier is adequate.
-7. For the current complete streaming stack, Linux amd64 is required because the selected ws-scrcpy-web image is amd64-only.
-8. HTTPS/WSS reverse proxy support. Keep ADB and internal service ports private; never publish port 5555.
+The currently documented Free plan provides one machine at 4 vCPU / 8 GiB RAM, a 20 GiB persistent `/data` disk, up to five snapshots, 30-minute idle pause, and a maximum run window of up to 480 minutes (8 hours). Verify the account's live limits before provisioning; do not assume a machine can run 24/7.
 
-## Free-host screening (not yet approved)
+The Android template is available on the Free plan. It runs Android 14 as a container on the machine's own Linux kernel (not an emulator and not a nested VM), with ADB and a desktop. The official guide says Android uses about 1–2 GiB while running and is ready roughly 20 seconds after machine start.
 
-A provider's marketing statement that it supports Docker is not enough. Before deploying, obtain a VM and run:
+Important Android-template limits:
+- No Google Play or Google services.
+- x86_64 only; ARM-only native APKs are not supported by built-in ARM translation.
+- Software rendering; suitable for app testing and UI automation, not heavy 3D/gaming.
+- The dashboard's Computer tab displays the Android window and accepts clicks and typing.
 
-```bash
-uname -a
-uname -m
-free -h
-df -h
-docker version
-docker compose version
-ls -l /dev/binder /dev/hwbinder /dev/vndbinder 2>/dev/null || true
-grep -E 'binder|ashmem' /proc/filesystems || true
-python3 scripts/redroid_doctor.py --skip-adb
+## Architecture direction
+
+Prefer InstaBox's native `android` template as the first runtime target. Do not assume a separately privileged Redroid Docker host is available, and do not deploy the old Redroid Compose stack unchanged until its compatibility inside InstaBox has been demonstrated.
+
+Proposed flow:
+
+```
+Browser (GOOGLETV-WEB UI on Vercel)
+  | authenticated HTTPS / WSS
+  v
+InstaBox machine (Free plan)
+  | Android 14 template + ADB
+  | persistent Android app data
+  | optional small project gateway / stream adapter
+  v
+Android apps and TV-style launcher
 ```
 
-Then validate the rendered Compose configuration and security audit:
+Use InstaBox's machine lifecycle/API to start, wake, pause, inspect and execute commands. Use the documented ADB path for APK install and input. Investigate the supported Computer/desktop access path for browser video and control before choosing an iframe or custom streaming adapter.
 
-```bash
-docker compose --profile streaming --env-file deploy/redroid/.env \
-  -f deploy/redroid/docker-compose.yml config --format json \
-  | python3 scripts/redroid_compose_audit.py
-```
+InstaBox published ports can provide HTTPS URLs for web services running inside the machine. Public ports are reachable by anyone with the URL; private ports require the generated token link. Keep control APIs private/authenticated and never expose ADB as a public port.
 
-Only after those checks pass should the Redroid stack be started. Run the real boot and stream acceptance scripts afterward.
+## Project acceptance gates
 
-### Candidate notes
+1. Create one Free-plan machine from the `android` template.
+2. Confirm Android 14 boot completion using the documented `instabox exec` and `docker exec instabox-android getprop sys.boot_completed` check.
+3. Confirm ADB sees Android and install a harmless test APK.
+4. Verify clicks, keyboard and D-pad-equivalent input.
+5. Prove that the Android display can be streamed or embedded in the GOOGLETV-WEB browser UI through a supported secure path.
+6. Verify app data survives pause/resume and machine restart.
+7. Verify idle pause and 8-hour run limits; implement wake/resume and user-visible runtime status.
+8. Confirm the free plan is never billed and avoid paid resources or paid fallback.
+9. Keep API keys and private port tokens out of the frontend bundle and public Git history.
 
-- Very small NAT/container VPS plans (for example, 192 MB RAM) are not viable for an Android runtime.
-- A claimed 2 GB KVM no-card offer is only a lead, not an approved host. Verify the actual VM allocation, kernel Binder availability, privileged Docker support, persistent disk, network ports and account renewal terms before relying on it.
-- Hyperscaler always-free offers commonly require a payment card for identity verification; they do not satisfy a no-card constraint.
-- Do not enter payment details, enable paid upgrades, or accept a paid fallback for this project.
+## Relationship to the Redroid migration branch
 
-## Deployment decision
+The existing `redroid-migration` branch contains a generic Redroid Docker Compose/gateway/streaming proof of concept. It is not yet proven against InstaBox and must not be represented as a working deployment. First validate InstaBox's native Android template. Reuse only the gateway/API pieces that fit; adapt or replace host provisioning and streaming based on the actual InstaBox machine interfaces.
 
-Status: **BLOCKED — no compatible host has been provisioned and tested yet.**
+## Current status
 
-Keep `redroid-migration` as the active integration branch. Do not merge it into `main`, remove the v86 fallback, or claim a working Google TV runtime until the real-host acceptance criteria in `docs/REDROID-MIGRATION.md` pass.
+**Provider selected; runtime provisioning and browser streaming are not yet proven.** Vercel remains the static frontend host only. A READY Vercel deployment does not mean Android is running.

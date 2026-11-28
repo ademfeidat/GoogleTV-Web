@@ -5,8 +5,9 @@ A minimal authenticated HTTP gateway between the GoogleTV-Web browser client and
 ## Environment
 
 - `GATEWAY_TOKEN`: required, unique random secret of at least 32 characters.
-- `ANDROID_ADB_HOST`: Redroid service name (default: `redroid`).
-- `ANDROID_ADB_PORT`: ADB TCP port (default: `5555`).
+- `ANDROID_ADB_SERIAL`: ADB device serial (default: `emulator-5554`, matching InstaBox native Android).
+- `ANDROID_ADB_HOST`: optional Redroid service hostname; when set and `ANDROID_ADB_SERIAL` is unset, the gateway uses `<host>:<ANDROID_ADB_PORT>`.
+- `ANDROID_ADB_PORT`: ADB TCP port for `ANDROID_ADB_HOST` (default: `5555`).
 - `ALLOWED_ORIGIN`: optional exact browser origin, for example `https://tv.example.com`.
 - `PORT`: HTTP listen port (default: `8080`).
 
@@ -33,4 +34,4 @@ Example input body: `{"action":"DPAD_UP"}`.
 - The APK upload is streamed to a private temporary directory, size-limited, and removed after installation.
 - No arbitrary shell, file browsing or WebSocket screen streaming is exposed yet.
 
-This gateway is an integration scaffold. A successful API response does not prove a Redroid Android guest has booted; verify `bootCompleted: true` on a compatible Linux host.
+This gateway supports InstaBox native Android through its local ADB serial (`emulator-5554`) and legacy Redroid TCP when explicitly configured. A successful API response does not prove Android has booted; verify `bootCompleted: true`.

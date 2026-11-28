@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 const dist = join(process.cwd(), 'dist');
 await access(join(dist, 'index.html'));
+await access(join(dist, 'redroid.html'));
 const v86Dir = join(dist, 'v86');
 const files = (await readdir(v86Dir)).filter(name => /^v86.*\.wasm$/.test(name));
 if (!files.length) throw new Error('Production build is missing the v86 WebAssembly runtime in dist/v86/.');

@@ -1,3 +1,5 @@
+> **Redroid migration branch:** The original v0.9.5 v86 experience remains available at `/`, and the new Redroid dashboard is at `/redroid.html`. The branch includes a Redroid Docker profile, authenticated ADB gateway, APK installation controls and a browser page that embeds ws-scrcpy-web. The UI and CI tests pass; a real Redroid boot and live stream still require a compatible Linux host. See [migration plan](docs/REDROID-MIGRATION.md), [streaming integration](docs/STREAMING-INTEGRATION.md) and [deployment guide](deploy/redroid/README.md).
+
 # GoogleTV-Web
 
 Experimental x86 virtual machine launcher for running a compatible Android-x86 / Android TV ISO inside a browser tab.
@@ -35,3 +37,8 @@ Snapshots remain in the current browser profile using IndexedDB. Restoring requi
 Firmware binaries are not bundled. Verify their source and redistribution rights before deployment. See `docs/BOOTSTRAP.md`.
 
 Project source: MIT. Emulator dependency: BSD-2-Clause; see upstream license.
+## Redroid dashboard preview
+
+Open `/redroid.html` on the deployed site to use the new Redroid browser dashboard. Enter the gateway URL and its private bearer token (the token is kept in page memory only), check Android status, configure the ws-scrcpy-web URL and ADB device ID, then open the embedded stream. The dashboard also offers allowlisted D-pad/Back/Home commands, direct APK installation, discovery of installed third-party apps, and safe launch of an installed app by Android package name through the gateway.
+
+The browser page is a client, not an Android runtime. It requires a separately running Redroid host and ws-scrcpy-web sidecar. For a remotely hosted page, configure the gateway's exact `ALLOWED_ORIGIN`, serve both endpoints over HTTPS, and configure ws-scrcpy-web's `frameAncestors` to allow the dashboard origin. The stream service has its own login. The bearer token is never written to localStorage or embedded in the static build.

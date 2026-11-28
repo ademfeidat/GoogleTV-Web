@@ -1,0 +1,67 @@
+services:
+  redroid:
+    image: ${REDROID_IMAGE:-redroid/redroid:14.0.0-latest}
+    container_name: googletv-redroid
+    privileged: true
+    restart: unless-stopped
+    shm_size: 1gb
+    command:
+      - androidboot.redroid_width=${REDROID_WIDTH:-1920}
+      - androidboot.redroid_height=${REDROID_HEIGHT:-1080}
+      - androidboot.redroid_dpi=${REDROID_DPI:-240}
+    volumes:
+      - redroid-data:/data
+    expose:
+      - "5555"
+    ports:
+      - "127.0.0.1:5555:5555"
+    networks:
+      - android-private
+
+  gateway:
+    build:
+      context: ../../server/gateway
+    container_name: googletv-gateway
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      GATEWAY_TOKEN: ${GATEWAY_TOKEN:?Set GATEWAY_TOKEN in deploy/redroid/.env}
+      ANDROID_ADB_HOST: redroid
+      ANDROID_ADB_PORT: "5555"
+      ALLOWED_ORIGIN: ${ALLOWED_ORIGIN:-}
+    depends_on:
+      - redroid
+    expose:
+      - "8080"
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks:
+      - android-private
+
+  stream:
+    image: ${WS_SCRCPY_IMAGE:-bilbospocketses/ws-scrcpy-web:0.5.13}
+    container_name: googletv-ws-scrcpy
+    restart: unless-stopped
+    profiles:
+      - streaming
+    environment:
+      WS_SCRCPY_ALLOW_REMOTE_ADMIN: ${WS_SCRCPY_ALLOW_REMOTE_ADMIN:-0}
+    volumes:
+      - ws-scrcpy-data:/data
+    depends_on:
+      - redroid
+    expose:
+      - "8000"
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks:
+      - android-private
+
+volumes:
+  redroid-data:
+  ws-scrcpy-data:
+
+networks:
+  android-private:
+    name: googletv-android-private
+    driver: bridge

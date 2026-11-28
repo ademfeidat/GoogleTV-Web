@@ -6,7 +6,7 @@ import { waitForEmulatorReady } from './vm-lifecycle.js';
 const root = document.querySelector('#root');
 root.innerHTML = `
 <main class="shell">
-<header class="top"><div class="brand"><div class="logo">▶</div><div><h1>GoogleTV Web</h1><p>Browser-based Android TV experiment</p></div></div><span class="pill">Experimental · x86 / WebAssembly</span></header>
+<header class="top"><div class="brand"><div class="logo">▶</div><div><h1>GoogleTV Web</h1><p>Browser-based Android TV experiment</p></div></div><div class="actions"><a class="button-link" href="/redroid.html">Try Redroid runtime</a><span class="pill">Experimental · x86 / WebAssembly</span></div></header>
 <section class="layout">
 <aside class="panel"><h2>Virtual machine setup</h2>
 <div class="field"><label for="iso">Android-x86 / Android TV ISO</label><input class="file" id="iso" type="file" accept=".iso"><p class="hint" id="iso-name">No ISO selected</p></div>

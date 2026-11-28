@@ -1,7 +1,7 @@
 name: CI
 on:
   push:
-    branches: [main]
+    branches: [main, redroid-migration]
   pull_request:
     branches: [main]
 jobs:
@@ -14,9 +14,25 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npm run check
+      - run: node --check server/gateway/src/server.js
       - run: npm test
+      - name: Test Python Redroid diagnostics
+        run: |
+          python3 -m py_compile scripts/redroid_doctor.py scripts/redroid_compose_audit.py test/test_redroid_doctor.py test/test_redroid_compose_audit.py
+          python3 -m unittest discover -s test -p 'test_*.py'
       - run: npm run build
       - name: Install Chromium for browser smoke test
         run: npx playwright install --with-deps chromium
       - name: Run browser smoke test
         run: npm run test:browser
+      - name: Check Redroid host and data scripts
+        run: |
+          bash -n scripts/redroid-host-preflight.sh
+          bash -n scripts/redroid-runtime-check.sh
+          bash -n scripts/redroid-data.sh
+          bash -n scripts/redroid-stream-preflight.sh
+          bash scripts/redroid-data.sh --help
+      - name: Validate Redroid Compose configuration
+        run: |
+          docker compose --env-file deploy/redroid/.env.example -f deploy/redroid/docker-compose.yml config --quiet
+          docker compose --profile streaming --env-file deploy/redroid/.env.example -f deploy/redroid/docker-compose.yml config --format json | python3 scripts/redroid_compose_audit.py

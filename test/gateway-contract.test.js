@@ -134,6 +134,32 @@ test("gateway rejects unsupported and empty APK uploads before ADB access", asyn
 });
 
 
+test("gateway uses the local InstaBox emulator serial without adb connect", async () => {
+  const calls = [];
+  const runAdb = async args => {
+    calls.push(args);
+    if (args.includes("get-state")) return { stdout: "device", stderr: "" };
+    if (args.at(-1) === "sys.boot_completed") return { stdout: "1", stderr: "" };
+    if (args.at(-1) === "ro.build.version.release") return { stdout: "14", stderr: "" };
+    if (args.at(-1) === "ro.product.model") return { stdout: "redroid14_x86_64", stderr: "" };
+    return { stdout: "", stderr: "" };
+  };
+  const token = "test-token-with-at-least-32-characters";
+  const server = createGatewayServer({ token, runAdb });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  try {
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/status`, {
+      headers: { Authorization: "Bearer " + token }
+    });
+    assert.equal(response.status, 200);
+    assert.ok(calls.some(args => args[0] === "-s" && args[1] === "emulator-5554"));
+    assert.equal(calls.some(args => args[0] === "connect"), false);
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});
+
 test("gateway status reports Android properties through the injected ADB adapter", async () => {
   const calls = [];
   const runAdb = async args => {

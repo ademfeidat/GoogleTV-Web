@@ -12,9 +12,11 @@ import { fileURLToPath } from "node:url";
 
 const execFileAsync = promisify(execFile);
 const PORT = Number(process.env.PORT || 8080);
-const ADB_HOST = process.env.ANDROID_ADB_HOST || "redroid";
+const ADB_HOST = process.env.ANDROID_ADB_HOST || "";
 const ADB_PORT = Number(process.env.ANDROID_ADB_PORT || 5555);
-const SERIAL = `${ADB_HOST}:${ADB_PORT}`;
+// InstaBox native Android exposes a local ADB transport (currently emulator-5554).
+// Set ANDROID_ADB_SERIAL to override it; legacy Redroid TCP remains opt-in via ANDROID_ADB_HOST.
+const SERIAL = process.env.ANDROID_ADB_SERIAL || (ADB_HOST ? `${ADB_HOST}:${ADB_PORT}` : "emulator-5554");
 const TOKEN = process.env.GATEWAY_TOKEN || "";
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "";
 const MAX_APK_BYTES = 512 * 1024 * 1024;
@@ -143,7 +145,9 @@ async function adb(args, timeout = 20_000) {
 }
 
 async function ensureDevice(runAdb = adb) {
-  await runAdb(["connect", SERIAL], 15_000);
+  // Local emulator transports are already registered with the ADB server; only
+  // network serials (host:port) need an explicit adb connect.
+  if (SERIAL.includes(":")) await runAdb(["connect", SERIAL], 15_000);
   await runAdb(["-s", SERIAL, "wait-for-device"], 15_000);
   const { stdout } = await runAdb(["-s", SERIAL, "get-state"], 10_000);
   if (stdout.trim() !== "device") throw new Error("Android device is not ready");
